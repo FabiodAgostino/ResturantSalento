@@ -15,7 +15,7 @@ exports.extractRestaurantData = functions.https.onRequest((req, res) => {
     try {
       const { url } = req.body;
 
-      if (!url || !url.includes('tripadvisor.com')) {
+      if (!url || !url.toLowerCase().includes('tripadvisor')) {
         return res.status(400).json({ 
           error: 'URL TripAdvisor valido richiesto' 
         });

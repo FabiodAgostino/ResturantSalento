@@ -50,20 +50,24 @@ export class RestaurantService {
   /**
    * Estrae dati da URL TripAdvisor usando il backend Express
    */
-  static async extractRestaurantData(url: string): Promise<ExtractionResponse> {
-    try {
-
-      if (!url || !url.toLocaleLowerCase().includes('tripadvisor')) {
-        throw new Error("URL TripAdvisor non valido");
-      }
-      const response = await apiRequest("POST", "/api/restaurants/extract", { url });
-      return await response.json();
-    } catch (error) {
-      console.error("Errore nell'estrazione:", error);
-      throw new Error("Impossibile estrarre i dati del ristorante. Verifica l'URL.");
+  // Nel metodo extractRestaurantData
+static async extractRestaurantData(url: string): Promise<ExtractionResponse> {
+  try {
+    if (!url || !url.toLowerCase().includes('tripadvisor')) {
+      throw new Error("URL TripAdvisor non valido");
     }
+    
+    console.log('🔍 Inizio estrazione da:', url);
+    const response = await apiRequest("POST", "/api/restaurants/extract", { url });
+    const result = await response.json();
+    console.log('✅ Estrazione completata:', result.extracted?.name);
+    
+    return result;
+  } catch (error) {
+    console.error("❌ Errore nell'estrazione:", error);
+    throw new Error("Impossibile estrarre i dati del ristorante. Verifica l'URL.");
   }
-
+}
   /**
    * Crea un nuovo ristorante
    */

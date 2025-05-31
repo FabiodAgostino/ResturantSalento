@@ -61,7 +61,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { url } = req.body;
       
-      if (!url || !url.includes('tripadvisor.com')) {
+     if (!url || !url.toLowerCase().includes('tripadvisor')) {
         return res.status(400).json({ message: "Valid TripAdvisor URL required" });
       }
 

@@ -2,9 +2,36 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// ✅ FORZA DEVELOPMENT MODE - IGNORA DIST
+console.log('🔧 === FORCING DEVELOPMENT MODE ===');
+process.env.NODE_ENV = 'development';
+console.log('🌍 NODE_ENV:', process.env.NODE_ENV);
+
 const app = express();
+
+// ✅ FORZA ANCHE EXPRESS IN DEVELOPMENT
+app.set("env", "development");
+console.log('🎯 Express env:', app.get("env"));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// ✅ DEBUG: Log di tutte le richieste
+app.use((req, res, next) => {
+  console.log(`🔍 INCOMING: ${req.method} ${req.path}`);
+  next();
+});
+
+// ✅ API TEST IMMEDIATA
+app.get('/api/test-immediate', (req, res) => {
+  console.log('✅ API TEST ROUTE HIT!');
+  res.json({ 
+    message: 'API funziona!', 
+    env: process.env.NODE_ENV,
+    expressEnv: app.get("env"),
+    timestamp: new Date().toISOString() 
+  });
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -37,34 +64,35 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  console.log('📝 Registering API routes...');
   const server = await registerRoutes(app);
+  console.log('✅ API routes registered');
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+  // ✅ Error handler per API
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.log(`❌ Error handler hit for: ${req.path}`);
+    if (req.path.startsWith('/api')) {
+      const status = err.status || err.statusCode || 500;
+      const message = err.message || "Internal Server Error";
+      console.log(`❌ API Error: ${status} - ${message}`);
+      res.status(status).json({ message });
+      return;
+    }
+    next(err);
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
+  // ✅ SEMPRE FORZA VITE DEVELOPMENT (ignora dist)
+  console.log('🎨 FORCING Vite development setup (ignoring dist folder)...');
+  await setupVite(app, server);
+  console.log('✅ Vite setup complete');
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
   const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
+  // ✅ FIX PER WINDOWS - Usa il metodo semplice
+  server.listen(port, "0.0.0.0", () => {
     log(`serving on port ${port}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+    console.log(`🌐 Frontend: http://localhost:${port}`);
+    console.log(`🔌 API Test: http://localhost:${port}/api/test-immediate`);
+    console.log('🎯 DEVELOPMENT MODE FORCED - DIST FOLDER IGNORED');
   });
 })();
