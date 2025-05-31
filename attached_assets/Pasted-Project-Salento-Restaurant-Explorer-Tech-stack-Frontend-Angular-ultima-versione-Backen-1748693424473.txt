@@ -1,0 +1,47 @@
+Project: Salento Restaurant Explorer
+
+Tech stack:
+- Frontend: Angular (ultima versione)
+- Backend “serverless”: Firestore (Google Firebase)
+- Web‐scraping: Node.js + Cheerio (integrato come Cloud Function o Microservice)
+- Mappe: Leaflet o Google Maps API
+- Calendario: Angular Calendar (es. angular-calendar di mattlewis92)
+- State & storage: Firestore per dati “globali”, cookie/localStorage per favoriti
+
+Requirements:
+1. **Scraping Service**  
+   - Riceve in input un array di URL TripAdvisor.  
+   - Per ogni URL estrae:  
+     • Nome ristorante  
+     • Rating numerico  
+     • Fascia di prezzo (€, €€–€€€, €€€€)  
+     • Geolocalizzazione (lat/lng) dalla mappa o indirizzo  
+     • Tipo/i di cucina (Italiana, Mediterranea, Pesce, Barbecue, Steakhouse, Pugliese)  
+   - Salva i risultati in Firestore in una collection `restaurants`.
+
+2. **Angular App**  
+   - **Service** `RestaurantService` che legge/scrive su Firestore.  
+   - **Home**:  
+     • Mappa interattiva con marker Leaflet/Google Maps di ogni ristorante.  
+     • Lista ordinabile/filtrabile per: tipo di cucina, fascia di prezzo, rating minimo.  
+     • Al click sul marker o sulla riga lista, popup/dettaglio con menu (se disponibile), prezzi e “Aggiungi ai preferiti”.  
+   - **Consigliati**:  
+     • Modulo che, dato il geolocation dell’utente (via browser), calcola la distanza e suggerisce il top restaurant in base a: tipo cucina preferita + fascia prezzo.  
+   - **Calendario**:  
+     • Usa `angular-calendar` per consentire all’utente di prenotare (o “mettere in calendario”) una visita a un ristorante.  
+     • Le prenotazioni vengono salvate su Firestore nella collection `bookings` con data, ristorante e note utente.  
+   - **Favoriti**:  
+     • Impostazione “Aggiungi/Rimuovi dai preferiti” memorizzata in cookie/localStorage, sincronizzata con Firestore quando l’utente è loggato (opzionale).
+
+3. **Routing & UI**  
+   - `/` → Mappa + Lista + Filtri  
+   - `/recommended` → Consigliati in base a posizione + preferenze utente  
+   - `/calendar` → Vista calendario con prenotazioni  
+   - `/favorites` → Lista dei preferiti dal cookie/localStorage  
+   - `/restaurant/:id` → Scheda dettagliata con menu, foto (carosello), recensioni (estratte da TripAdvisor se disponibili)
+
+4. **Authentication (opzionale)**  
+   - Login anonimo o con Google (Firebase Auth) per sincronizzare i preferiti e le prenotazioni.
+
+5. **Styling & Responsività**  
+   - Usa Angular Material o TailwindCSS per un’interfaccia pulita e mobile-friendly.
