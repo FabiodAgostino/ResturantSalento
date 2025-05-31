@@ -1,100 +1,85 @@
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  getDocs, 
-  getDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy,
-  serverTimestamp,
-  type DocumentData 
-} from 'firebase/firestore';
-import { db } from './firebase-config';
-import type { Restaurant, InsertRestaurant, Booking, InsertBooking } from './types';
+// client/src/services/restaurant-service.ts
+import { apiRequest } from "@/lib/queryClient";
+import type { Restaurant, InsertRestaurant } from "@/lib/types";
 
-// Collections
-const RESTAURANTS_COLLECTION = 'restaurants';
-const BOOKINGS_COLLECTION = 'bookings';
+export interface ExtractedRestaurantData {
+  name: string;
+  cuisine: string;
+  priceRange: string;
+  rating: string;
+  location: string;
+  description?: string;
+  phone?: string;
+  address?: string;
+  latitude?: string;
+  longitude?: string;
+}
+
+export interface ExtractionResponse {
+  extracted: ExtractedRestaurantData;
+}
 
 export class RestaurantService {
-  // Restaurant methods
+  /**
+   * Ottiene tutti i ristoranti dal backend Express
+   */
   static async getAllRestaurants(): Promise<Restaurant[]> {
     try {
-      const querySnapshot = await getDocs(collection(db, RESTAURANTS_COLLECTION));
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Restaurant[];
-    } catch (error) {
-      console.error('Error fetching restaurants:', error);
-      throw new Error('Failed to fetch restaurants');
-    }
-  }
-
-  static async getRestaurant(id: string): Promise<Restaurant | null> {
-    try {
-      const docRef = doc(db, RESTAURANTS_COLLECTION, id);
-      const docSnap = await getDoc(docRef);
+      const response = await apiRequest("GET", "/api/restaurants");
+      const restaurants = await response.json();
       
-      if (docSnap.exists()) {
-        return {
-          id: docSnap.id,
-          ...docSnap.data()
-        } as Restaurant;
-      }
-      return null;
+      // Assicurati che ogni ristorante abbia le proprietà necessarie
+      return restaurants.map((restaurant: any) => ({
+        ...restaurant,
+        isApproved: restaurant.isApproved ?? true, // Default a true se non definito
+        createdAt: restaurant.createdAt ? new Date(restaurant.createdAt) : new Date(),
+        description: restaurant.description || "Ristorante tradizionale",
+        phone: restaurant.phone || null,
+        hours: restaurant.hours || null,
+        address: restaurant.address || null,
+        imageUrl: restaurant.imageUrl || null,
+        latitude: restaurant.latitude || "40.3515",
+        longitude: restaurant.longitude || "18.1750"
+      }));
     } catch (error) {
-      console.error('Error fetching restaurant:', error);
-      throw new Error('Failed to fetch restaurant');
+      console.error("Error fetching restaurants:", error);
+      throw new Error("Impossibile caricare i ristoranti");
     }
   }
 
+  /**
+   * Estrae dati da URL TripAdvisor usando il backend Express
+   */
+  static async extractRestaurantData(url: string): Promise<ExtractionResponse> {
+    try {
+
+      if (!url || !url.toLocaleLowerCase().includes('tripadvisor')) {
+        throw new Error("URL TripAdvisor non valido");
+      }
+      const response = await apiRequest("POST", "/api/restaurants/extract", { url });
+      return await response.json();
+    } catch (error) {
+      console.error("Errore nell'estrazione:", error);
+      throw new Error("Impossibile estrarre i dati del ristorante. Verifica l'URL.");
+    }
+  }
+
+  /**
+   * Crea un nuovo ristorante
+   */
   static async createRestaurant(restaurantData: InsertRestaurant): Promise<Restaurant> {
     try {
-      const docRef = await addDoc(collection(db, RESTAURANTS_COLLECTION), {
-        ...restaurantData,
-        isApproved: false,
-        createdAt: serverTimestamp()
-      });
-      
-      // Get the created document
-      const newDoc = await getDoc(docRef);
-      return {
-        id: newDoc.id,
-        ...newDoc.data()
-      } as Restaurant;
+      const response = await apiRequest("POST", "/api/restaurants", restaurantData);
+      return await response.json();
     } catch (error) {
-      console.error('Error creating restaurant:', error);
-      throw new Error('Failed to create restaurant');
+      console.error("Errore nella creazione:", error);
+      throw new Error("Impossibile aggiungere il ristorante");
     }
   }
 
-  static async updateRestaurant(id: string, updates: Partial<Restaurant>): Promise<Restaurant | null> {
-    try {
-      const docRef = doc(db, RESTAURANTS_COLLECTION, id);
-      await updateDoc(docRef, updates);
-      
-      // Return updated document
-      return await this.getRestaurant(id);
-    } catch (error) {
-      console.error('Error updating restaurant:', error);
-      throw new Error('Failed to update restaurant');
-    }
-  }
-
-  static async deleteRestaurant(id: string): Promise<boolean> {
-    try {
-      await deleteDoc(doc(db, RESTAURANTS_COLLECTION, id));
-      return true;
-    } catch (error) {
-      console.error('Error deleting restaurant:', error);
-      return false;
-    }
-  }
-
+  /**
+   * Cerca ristoranti con filtri
+   */
   static async searchRestaurants(filters: {
     search?: string;
     cuisine?: string;
@@ -102,143 +87,87 @@ export class RestaurantService {
     minRating?: number;
   }): Promise<Restaurant[]> {
     try {
-      let q = query(collection(db, RESTAURANTS_COLLECTION));
-
-      // Apply filters
-      if (filters.cuisine) {
-        q = query(q, where('cuisine', '==', filters.cuisine));
-      }
+      const queryParams = new URLSearchParams();
       
-      if (filters.priceRange) {
-        q = query(q, where('priceRange', '==', filters.priceRange));
-      }
-
-      if (filters.minRating) {
-        q = query(q, where('rating', '>=', filters.minRating.toString()));
-      }
-
-      // Add ordering
-      q = query(q, orderBy('createdAt', 'desc'));
-
-      const querySnapshot = await getDocs(q);
-      let restaurants = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Restaurant[];
-
-      // Apply text search client-side (Firestore doesn't support full-text search)
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        restaurants = restaurants.filter(restaurant => 
-          restaurant.name.toLowerCase().includes(searchTerm) ||
-          restaurant.description?.toLowerCase().includes(searchTerm) ||
-          restaurant.location.toLowerCase().includes(searchTerm)
-        );
-      }
-
-      return restaurants;
-    } catch (error) {
-      console.error('Error searching restaurants:', error);
-      throw new Error('Failed to search restaurants');
-    }
-  }
-
-  // Booking methods
-  static async getAllBookings(): Promise<Booking[]> {
-    try {
-      const q = query(collection(db, BOOKINGS_COLLECTION), orderBy('date', 'asc'));
-      const querySnapshot = await getDocs(q);
-      
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date.toDate() // Convert Firestore timestamp to Date
-      })) as Booking[];
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
-      throw new Error('Failed to fetch bookings');
-    }
-  }
-
-  static async getBooking(id: string): Promise<Booking | null> {
-    try {
-      const docRef = doc(db, BOOKINGS_COLLECTION, id);
-      const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          ...data,
-          date: data.date.toDate()
-        } as Booking;
-      }
-      return null;
-    } catch (error) {
-      console.error('Error fetching booking:', error);
-      throw new Error('Failed to fetch booking');
-    }
-  }
-
-  static async createBooking(bookingData: InsertBooking): Promise<Booking> {
-    try {
-      const docRef = await addDoc(collection(db, BOOKINGS_COLLECTION), {
-        ...bookingData,
-        createdAt: serverTimestamp()
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          queryParams.append(key, value.toString());
+        }
       });
+
+      const url = `/api/restaurants${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const response = await apiRequest("GET", url);
+      const restaurants = await response.json();
       
-      const newDoc = await getDoc(docRef);
-      const data = newDoc.data()!;
-      return {
-        id: newDoc.id,
-        ...data,
-        date: data.date.toDate()
-      } as Booking;
+      return restaurants.map((restaurant: any) => ({
+        ...restaurant,
+        isApproved: restaurant.isApproved ?? true,
+        createdAt: restaurant.createdAt ? new Date(restaurant.createdAt) : new Date()
+      }));
     } catch (error) {
-      console.error('Error creating booking:', error);
-      throw new Error('Failed to create booking');
+      console.error("Error searching restaurants:", error);
+      throw new Error("Errore nella ricerca dei ristoranti");
     }
   }
+}
 
-  static async updateBooking(id: string, updates: Partial<Booking>): Promise<Booking | null> {
-    try {
-      const docRef = doc(db, BOOKINGS_COLLECTION, id);
-      await updateDoc(docRef, updates);
-      
-      return await this.getBooking(id);
-    } catch (error) {
-      console.error('Error updating booking:', error);
-      throw new Error('Failed to update booking');
-    }
+// Tipi per gestire gli errori
+export class RestaurantServiceError extends Error {
+  constructor(
+    message: string,
+    public code?: string,
+    public originalError?: any
+  ) {
+    super(message);
+    this.name = 'RestaurantServiceError';
   }
+}
 
-  static async deleteBooking(id: string): Promise<boolean> {
+// Utilities per la validazione
+export class RestaurantValidator {
+  static validateTripAdvisorUrl(url: string): boolean {
     try {
-      await deleteDoc(doc(db, BOOKINGS_COLLECTION, id));
-      return true;
-    } catch (error) {
-      console.error('Error deleting booking:', error);
+      const urlObj = new URL(url);
+      return urlObj.hostname.includes('tripadvisor.com') || 
+             urlObj.hostname.includes('tripadvisor.it');
+    } catch {
       return false;
     }
   }
 
-  static async getBookingsByRestaurant(restaurantId: string): Promise<Booking[]> {
-    try {
-      const q = query(
-        collection(db, BOOKINGS_COLLECTION),
-        where('restaurantId', '==', restaurantId),
-        orderBy('date', 'asc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date.toDate()
-      })) as Booking[];
-    } catch (error) {
-      console.error('Error fetching restaurant bookings:', error);
-      throw new Error('Failed to fetch restaurant bookings');
+  static validateRestaurantData(data: Partial<InsertRestaurant>): string[] {
+    const errors: string[] = [];
+    
+    if (!data.name || data.name.trim().length < 2) {
+      errors.push("Il nome del ristorante deve avere almeno 2 caratteri");
     }
+    
+    if (!data.tripadvisorUrl || !this.validateTripAdvisorUrl(data.tripadvisorUrl)) {
+      errors.push("URL TripAdvisor non valido");
+    }
+    
+    if (!data.cuisine) {
+      errors.push("Tipo di cucina obbligatorio");
+    }
+    
+    if (!data.priceRange) {
+      errors.push("Fascia di prezzo obbligatoria");
+    }
+    
+    if (!data.location || data.location.trim().length < 2) {
+      errors.push("Posizione obbligatoria");
+    }
+    
+    return errors;
   }
 }
+
+// Hook personalizzato per React Query
+export const useRestaurants = () => {
+  return {
+    getAllRestaurants: RestaurantService.getAllRestaurants,
+    extractRestaurantData: RestaurantService.extractRestaurantData,
+    createRestaurant: RestaurantService.createRestaurant,
+    searchRestaurants: RestaurantService.searchRestaurants,
+  };
+};

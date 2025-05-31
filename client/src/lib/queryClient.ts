@@ -18,7 +18,8 @@ export async function apiRequest(
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
-
+  console.log(url)
+alert();
   await throwIfResNotOk(res);
   return res;
 }
