@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Regole per la collection restaurants
+    match /restaurants/{restaurantId} {
+      // Lettura: tutti possono leggere i ristoranti approvati
+      allow read: if resource.data.isApproved == true;
+      
+      // Scrittura: tutti possono creare ristoranti (saranno pending approval)
+      allow create: if request.auth != null || true; // Permetti anche utenti anonimi
+      
+      // Solo utenti autenticati possono aggiornare/eliminare
+      allow update, delete: if request.auth != null;
+    }
+    
+    // Regole per la collection bookings
+    match /bookings/{bookingId} {
+      // Lettura/scrittura: tutti gli utenti (per semplicità)
+      // In produzione, limitare agli utenti autenticati
+      allow read, write: if true;
+      
+      // Versione più sicura (decommentare per produzione):
+      // allow read, write: if request.auth != null;
+    }
+    
+    // Regole per altre collections future
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

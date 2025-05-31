@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarIcon, Edit, Trash2, Plus } from "lucide-react";
 import CalendarView from "@/components/CalendarView";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { useBookings, useRestaurants } from "@/hooks/use-firebase";
 import type { Booking, Restaurant } from "@/lib/types";
 
 const Calendar = () => {
@@ -24,58 +23,21 @@ const Calendar = () => {
   });
 
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const { data: bookings = [] } = useQuery<Booking[]>({
-    queryKey: ["/api/bookings"],
-  });
+  // Hook Firebase per prenotazioni e ristoranti
+  const { 
+    bookings, 
+    loading: bookingsLoading, 
+    error: bookingsError, 
+    createBooking, 
+    updateBooking, 
+    deleteBooking 
+  } = useBookings();
 
-  const { data: restaurants = [] } = useQuery<Restaurant[]>({
-    queryKey: ["/api/restaurants"],
-  });
-
-  const createBookingMutation = useMutation({
-    mutationFn: async (bookingData: any) => {
-      const response = await apiRequest("POST", "/api/bookings", bookingData);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
-      setIsAddBookingOpen(false);
-      resetForm();
-      toast({
-        title: "Booking Created",
-        description: "Your restaurant booking has been successfully created.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to create booking. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const deleteBookingMutation = useMutation({
-    mutationFn: async (bookingId: number) => {
-      await apiRequest("DELETE", `/api/bookings/${bookingId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/bookings"] });
-      toast({
-        title: "Booking Deleted",
-        description: "Your booking has been successfully deleted.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to delete booking. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  const { 
+    restaurants, 
+    loading: restaurantsLoading 
+  } = useRestaurants();
 
   const resetForm = () => {
     setFormData({
@@ -87,70 +49,148 @@ const Calendar = () => {
     setSelectedBooking(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.restaurantId || !formData.date || !formData.time) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
+        title: "Informazioni mancanti",
+        description: "Compila tutti i campi obbligatori.",
         variant: "destructive",
       });
       return;
     }
 
-    const bookingData = {
-      restaurantId: parseInt(formData.restaurantId),
-      date: new Date(formData.date + "T00:00:00"),
-      time: formData.time,
-      notes: formData.notes,
-    };
+    try {
+      await createBooking({
+        restaurantId: formData.restaurantId,
+        date: new Date(formData.date + "T00:00:00"),
+        time: formData.time,
+        notes: formData.notes,
+      });
 
-    createBookingMutation.mutate(bookingData);
-  };
-
-  const handleDeleteBooking = (bookingId: number) => {
-    if (confirm("Are you sure you want to delete this booking?")) {
-      deleteBookingMutation.mutate(bookingId);
+      setIsAddBookingOpen(false);
+      resetForm();
+      toast({
+        title: "Prenotazione creata",
+        description: "La tua prenotazione al ristorante è stata creata con successo.",
+      });
+    } catch (error) {
+      console.error("Errore nella creazione della prenotazione:", error);
+      toast({
+        title: "Errore",
+        description: "Errore nella creazione della prenotazione. Riprova.",
+        variant: "destructive",
+      });
     }
   };
 
-  // Convert bookings to calendar events
+  const handleUpdateBooking = async (bookingId: string, updates: Partial<Booking>) => {
+    try {
+      await updateBooking(bookingId, updates);
+      toast({
+        title: "Prenotazione aggiornata",
+        description: "La prenotazione è stata aggiornata con successo.",
+      });
+    } catch (error) {
+      console.error("Errore nell'aggiornamento della prenotazione:", error);
+      toast({
+        title: "Errore",
+        description: "Errore nell'aggiornamento della prenotazione. Riprova.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteBooking = async (bookingId: string) => {
+    if (confirm("Sei sicuro di voler eliminare questa prenotazione?")) {
+      try {
+        await deleteBooking(bookingId);
+        toast({
+          title: "Prenotazione eliminata",
+          description: "La tua prenotazione è stata eliminata con successo.",
+        });
+      } catch (error) {
+        console.error("Errore nell'eliminazione della prenotazione:", error);
+        toast({
+          title: "Errore",
+          description: "Errore nell'eliminazione della prenotazione. Riprova.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  // Converti le prenotazioni in eventi del calendario
   const calendarEvents = bookings.map(booking => {
     const restaurant = restaurants.find(r => r.id === booking.restaurantId);
     return {
-      id: booking.id.toString(),
-      title: `${restaurant?.name || 'Restaurant'} ${booking.time}`,
+      id: booking.id,
+      title: `${restaurant?.name || 'Ristorante'} ${booking.time}`,
       date: new Date(booking.date),
       color: 'bg-[hsl(var(--terracotta))] text-white',
     };
   });
 
+  // Filtra le prenotazioni future e ordinale per data
   const upcomingBookings = bookings
     .filter(booking => new Date(booking.date) >= new Date())
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 5);
+
+  // Stati di caricamento
+  if (bookingsLoading || restaurantsLoading) {
+    return (
+      <main className="min-h-screen">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(var(--terracotta))]"></div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Gestione errori
+  if (bookingsError) {
+    return (
+      <main className="min-h-screen">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="text-center">
+                <h3 className="text-lg font-semibold text-red-600 mb-2">
+                  Errore nel caricamento
+                </h3>
+                <p className="text-gray-600">{bookingsError}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-display font-bold text-[hsl(var(--dark-slate))] mb-4">
-            Restaurant Calendar
+            Calendario Ristoranti
           </h2>
           <p className="text-lg text-[hsl(var(--dark-slate))]/70">
-            Plan your culinary adventures
+            Pianifica le tue avventure culinarie
           </p>
         </div>
 
-        {/* Calendar Header */}
+        {/* Header Calendario */}
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="flex items-center space-x-4 mb-4 md:mb-0">
                 <CalendarIcon className="w-6 h-6 text-[hsl(var(--terracotta))]" />
                 <h3 className="text-xl font-display font-semibold text-[hsl(var(--dark-slate))]">
-                  Your Bookings
+                  Le tue prenotazioni
                 </h3>
               </div>
               
@@ -158,27 +198,27 @@ const Calendar = () => {
                 <DialogTrigger asChild>
                   <Button className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]">
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Booking
+                    Aggiungi prenotazione
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Add New Booking</DialogTitle>
+                    <DialogTitle>Nuova prenotazione</DialogTitle>
                   </DialogHeader>
-                  <form onSubmit={handleSubmit} className="space-y-4">
+                  <form onSubmit={handleCreateBooking} className="space-y-4">
                     <div>
-                      <Label htmlFor="restaurant">Restaurant *</Label>
+                      <Label htmlFor="restaurant">Ristorante *</Label>
                       <Select 
                         value={formData.restaurantId} 
                         onValueChange={(value) => setFormData(prev => ({ ...prev, restaurantId: value }))}
                         required
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select a restaurant" />
+                          <SelectValue placeholder="Seleziona un ristorante" />
                         </SelectTrigger>
                         <SelectContent>
                           {restaurants.map(restaurant => (
-                            <SelectItem key={restaurant.id} value={restaurant.id.toString()}>
+                            <SelectItem key={restaurant.id} value={restaurant.id}>
                               {restaurant.name} - {restaurant.location}
                             </SelectItem>
                           ))}
@@ -187,7 +227,7 @@ const Calendar = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="date">Date *</Label>
+                      <Label htmlFor="date">Data *</Label>
                       <Input
                         id="date"
                         type="date"
@@ -199,7 +239,7 @@ const Calendar = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="time">Time *</Label>
+                      <Label htmlFor="time">Orario *</Label>
                       <Input
                         id="time"
                         type="time"
@@ -210,10 +250,10 @@ const Calendar = () => {
                     </div>
 
                     <div>
-                      <Label htmlFor="notes">Notes</Label>
+                      <Label htmlFor="notes">Note</Label>
                       <Textarea
                         id="notes"
-                        placeholder="Special requests, number of guests, etc."
+                        placeholder="Richieste speciali, numero di ospiti, ecc."
                         value={formData.notes}
                         onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                       />
@@ -225,14 +265,13 @@ const Calendar = () => {
                         variant="outline" 
                         onClick={() => setIsAddBookingOpen(false)}
                       >
-                        Cancel
+                        Annulla
                       </Button>
                       <Button 
                         type="submit" 
                         className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
-                        disabled={createBookingMutation.isPending}
                       >
-                        {createBookingMutation.isPending ? "Creating..." : "Create Booking"}
+                        Crea prenotazione
                       </Button>
                     </div>
                   </form>
@@ -242,16 +281,16 @@ const Calendar = () => {
           </CardContent>
         </Card>
 
-        {/* Calendar */}
+        {/* Calendario */}
         <div className="mb-8">
           <CalendarView events={calendarEvents} />
         </div>
 
-        {/* Upcoming Bookings */}
+        {/* Prossime prenotazioni */}
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-display font-semibold text-[hsl(var(--dark-slate))]">
-              Upcoming Bookings
+              Prossime prenotazioni
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -259,16 +298,16 @@ const Calendar = () => {
               <div className="text-center py-8">
                 <CalendarIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-[hsl(var(--dark-slate))] mb-2">
-                  No upcoming bookings
+                  Nessuna prenotazione futura
                 </h3>
                 <p className="text-[hsl(var(--dark-slate))]/70 mb-4">
-                  Start planning your next culinary adventure!
+                  Inizia a pianificare la tua prossima avventura culinaria!
                 </p>
                 <Button
                   onClick={() => setIsAddBookingOpen(true)}
                   className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
                 >
-                  Add Your First Booking
+                  Aggiungi la tua prima prenotazione
                 </Button>
               </div>
             ) : (
@@ -285,15 +324,15 @@ const Calendar = () => {
                         </div>
                         <div>
                           <h4 className="font-semibold text-[hsl(var(--dark-slate))]">
-                            {restaurant?.name || 'Unknown Restaurant'}
+                            {restaurant?.name || 'Ristorante sconosciuto'}
                           </h4>
                           <p className="text-[hsl(var(--dark-slate))]/70">
-                            {bookingDate.toLocaleDateString('en-US', { 
+                            {bookingDate.toLocaleDateString('it-IT', { 
                               weekday: 'long',
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric'
-                            })} at {booking.time}
+                            })} alle {booking.time}
                           </p>
                           <p className="text-[hsl(var(--dark-slate))]/60 text-sm">
                             {restaurant?.location} • {restaurant?.priceRange}
@@ -310,6 +349,13 @@ const Calendar = () => {
                           variant="outline"
                           size="icon"
                           className="text-[hsl(var(--terracotta))] hover:text-[hsl(var(--saddle))]"
+                          onClick={() => {
+                            // TODO: Implementa modifica prenotazione
+                            toast({
+                              title: "Funzionalità in arrivo",
+                              description: "La modifica delle prenotazioni sarà disponibile presto."
+                            });
+                          }}
                         >
                           <Edit className="w-4 h-4" />
                         </Button>

@@ -1,6 +1,8 @@
-// Frontend type definitions matching the backend schema
+// client/src/lib/firebase-types.ts
+// Tipi aggiornati per Firebase (ID come string invece di number)
+
 export interface Restaurant {
-  id: number;
+  id: string;  // Cambiato da number a string per Firebase
   name: string;
   tripadvisorUrl: string;
   cuisine: string;
@@ -19,8 +21,8 @@ export interface Restaurant {
 }
 
 export interface Booking {
-  id: number;
-  restaurantId: number;
+  id: string;  // Cambiato da number a string per Firebase
+  restaurantId: string;  // Cambiato da number a string
   date: Date;
   time: string;
   notes?: string;
@@ -28,7 +30,7 @@ export interface Booking {
 }
 
 export interface User {
-  id: number;
+  id: string;  // Cambiato da number a string per Firebase
   username: string;
   password: string;
 }
@@ -51,7 +53,7 @@ export interface InsertRestaurant {
 }
 
 export interface InsertBooking {
-  restaurantId: number;
+  restaurantId: string;  // Cambiato da number a string
   date: Date;
   time: string;
   notes?: string;

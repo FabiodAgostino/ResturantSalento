@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MapPin, Target, Star, Clock } from "lucide-react";
+import { MapPin, Target, Star, Clock, TrendingUp } from "lucide-react";
 import RestaurantModal from "@/components/RestaurantModal";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { useRestaurants } from "@/hooks/use-firebase";
+import { useFavorites } from "@/hooks/use-favorites";
 import type { Restaurant } from "@/lib/types";
 
 const Recommended = () => {
@@ -15,14 +16,18 @@ const Recommended = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const { location, isLoading: locationLoading, error: locationError, getCurrentLocation } = useGeolocation();
+  const { favorites } = useFavorites();
 
-  const { data: restaurants = [] } = useQuery<Restaurant[]>({
-    queryKey: ["/api/restaurants"],
-  });
+  // Hook Firebase per ottenere i ristoranti
+  const { 
+    restaurants, 
+    loading: restaurantsLoading, 
+    error: restaurantsError 
+  } = useRestaurants();
 
-  // Calculate distance between two points using Haversine formula
+  // Calcola la distanza tra due punti usando la formula di Haversine
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Radius of the Earth in kilometers
+    const R = 6371; // Raggio della Terra in chilometri
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
     const a = 
@@ -30,7 +35,7 @@ const Recommended = () => {
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
       Math.sin(dLon/2) * Math.sin(dLon/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const d = R * c; // Distance in kilometers
+    const d = R * c; // Distanza in chilometri
     return d;
   };
 
@@ -40,21 +45,26 @@ const Recommended = () => {
     let scored = restaurants.map(restaurant => {
       let score = 0;
       
-      // Cuisine preference score (40% weight)
+      // Punteggio preferenza cucina (35% peso)
       if (restaurant.cuisine === preferredCuisine) {
-        score += 40;
+        score += 35;
       }
       
-      // Price preference score (20% weight)
+      // Punteggio preferenza prezzo (20% peso)
       if (restaurant.priceRange === preferredPrice) {
         score += 20;
       }
       
-      // Rating score (30% weight)
-      const ratingScore = (parseFloat(restaurant.rating) / 5) * 30;
+      // Punteggio rating (25% peso)
+      const ratingScore = (parseFloat(restaurant.rating) / 5) * 25;
       score += ratingScore;
       
-      // Distance score (10% weight) - only if location is available
+      // Bonus per ristoranti nei preferiti (10% peso)
+      if (favorites.includes(restaurant.id)) {
+        score += 10;
+      }
+      
+      // Punteggio distanza (10% peso) - solo se la posizione è disponibile
       let distance = null;
       if (location && restaurant.latitude && restaurant.longitude) {
         distance = calculateDistance(
@@ -63,7 +73,7 @@ const Recommended = () => {
           parseFloat(restaurant.latitude), 
           parseFloat(restaurant.longitude)
         );
-        // Closer restaurants get higher scores (max 10 points for < 1km)
+        // Ristoranti più vicini ottengono punteggi più alti (max 10 punti per < 1km)
         const distanceScore = Math.max(0, 10 - (distance / 2));
         score += distanceScore;
       }
@@ -76,7 +86,7 @@ const Recommended = () => {
 
   const recommendations = getRecommendations();
   const topRecommendation = recommendations[0];
-  const otherRecommendations = recommendations.slice(1, 3);
+  const otherRecommendations = recommendations.slice(1, 4);
 
   const formatDistance = (distance: number | null) => {
     if (!distance) return null;
@@ -90,7 +100,7 @@ const Recommended = () => {
     if (!distance) return null;
     const walkingSpeed = 5; // km/h
     const minutes = Math.round((distance / walkingSpeed) * 60);
-    return `${minutes} min walk`;
+    return `${minutes} min a piedi`;
   };
 
   const cuisineOptions = [
@@ -103,40 +113,104 @@ const Recommended = () => {
   ];
 
   const priceOptions = [
-    { value: "€", label: "€ - Budget" },
-    { value: "€€", label: "€€ - Moderate" },
-    { value: "€€€", label: "€€€ - Expensive" },
+    { value: "€", label: "€ - Economico" },
+    { value: "€€", label: "€€ - Moderato" },
+    { value: "€€€", label: "€€€ - Costoso" },
     { value: "€€€€", label: "€€€€ - Fine Dining" },
   ];
+
+  // Stato di caricamento
+  if (restaurantsLoading) {
+    return (
+      <main className="min-h-screen">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-display font-bold text-[hsl(var(--dark-slate))] mb-4">
+              Consigliati per te
+            </h2>
+            <p className="text-lg text-[hsl(var(--dark-slate))]/70">
+              Basato sulla tua posizione e preferenze
+            </p>
+          </div>
+          
+          {/* Loading State */}
+          <div className="flex items-center justify-center min-h-[400px]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(var(--terracotta))] mx-auto mb-4"></div>
+              <p className="text-[hsl(var(--dark-slate))]/70">
+                Caricamento dei consigli personalizzati...
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  // Gestione errori
+  if (restaurantsError) {
+    return (
+      <main className="min-h-screen">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-display font-bold text-[hsl(var(--dark-slate))] mb-4">
+              Consigliati per te
+            </h2>
+          </div>
+          
+          {/* Error State */}
+          <Card>
+            <CardContent className="p-12 text-center">
+              <div className="text-red-500 mb-4">
+                <TrendingUp className="w-16 h-16 mx-auto mb-4 opacity-50" />
+              </div>
+              <h3 className="text-2xl font-display font-semibold text-[hsl(var(--dark-slate))] mb-2">
+                Errore nel caricamento
+              </h3>
+              <p className="text-[hsl(var(--dark-slate))]/70 mb-6">
+                {restaurantsError}
+              </p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
+              >
+                Riprova
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-display font-bold text-[hsl(var(--dark-slate))] mb-4">
-            Recommended for You
+            Consigliati per te
           </h2>
           <p className="text-lg text-[hsl(var(--dark-slate))]/70">
-            Based on your location and preferences
+            Basato sulla tua posizione e preferenze
           </p>
         </div>
 
-        {/* Location Status */}
+        {/* Stato della posizione */}
         <Card className="mb-6">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <MapPin className="w-6 h-6 text-[hsl(var(--terracotta))] mr-3" />
                 <div>
-                  <h3 className="font-semibold text-[hsl(var(--dark-slate))]">Your Location</h3>
+                  <h3 className="font-semibold text-[hsl(var(--dark-slate))]">La tua posizione</h3>
                   <p className="text-[hsl(var(--dark-slate))]/70">
                     {locationLoading 
-                      ? "Detecting location..." 
+                      ? "Rilevamento posizione..." 
                       : location 
                       ? `Lat: ${location.latitude.toFixed(4)}, Lng: ${location.longitude.toFixed(4)}`
                       : locationError
-                      ? "Unable to detect location"
-                      : "Click to detect your location"
+                      ? "Impossibile rilevare la posizione"
+                      : "Clicca per rilevare la tua posizione"
                     }
                   </p>
                 </div>
@@ -147,24 +221,24 @@ const Recommended = () => {
                 className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
               >
                 <Target className="w-4 h-4 mr-2" />
-                {locationLoading ? "Detecting..." : "Detect Location"}
+                {locationLoading ? "Rilevamento..." : "Rileva posizione"}
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Preference Selection */}
+        {/* Selezione preferenze */}
         <Card className="mb-6">
           <CardHeader>
             <CardTitle className="text-xl font-display font-semibold text-[hsl(var(--dark-slate))]">
-              Your Preferences
+              Le tue preferenze
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-[hsl(var(--dark-slate))] mb-2">
-                  Preferred Cuisine
+                  Cucina preferita
                 </label>
                 <Select value={preferredCuisine} onValueChange={setPreferredCuisine}>
                   <SelectTrigger>
@@ -182,7 +256,7 @@ const Recommended = () => {
               
               <div>
                 <label className="block text-sm font-medium text-[hsl(var(--dark-slate))] mb-2">
-                  Price Range
+                  Fascia di prezzo
                 </label>
                 <Select value={preferredPrice} onValueChange={setPreferredPrice}>
                   <SelectTrigger>
@@ -198,16 +272,28 @@ const Recommended = () => {
                 </Select>
               </div>
             </div>
+            
+            {/* Info sui filtri attivi */}
+            <div className="mt-4 p-3 bg-[hsl(var(--terracotta))]/5 rounded-lg">
+              <div className="flex items-center text-sm">
+                <TrendingUp className="w-4 h-4 text-[hsl(var(--terracotta))] mr-2" />
+                <span className="text-[hsl(var(--dark-slate))]/70">
+                  Consigli basati su: cucina {preferredCuisine}, fascia {preferredPrice}
+                  {location && ", distanza dalla tua posizione"}
+                  {favorites.length > 0 && `, ${favorites.length} preferiti`}
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Recommended Restaurants */}
+        {/* Ristoranti consigliati */}
         <div className="space-y-6">
-          {/* Top Recommendation */}
+          {/* Consiglio principale */}
           {topRecommendation && (
             <div className="bg-gradient-to-r from-[hsl(var(--terracotta))] to-[hsl(var(--saddle))] rounded-xl text-white p-6 relative overflow-hidden">
               <div className="absolute top-0 right-0 bg-[hsl(var(--goldenrod))] text-[hsl(var(--dark-slate))] px-3 py-1 rounded-bl-lg font-bold text-sm">
-                #1 CHOICE
+                #1 SCELTA
               </div>
               <div className="flex flex-col md:flex-row items-center">
                 <img
@@ -220,8 +306,9 @@ const Recommended = () => {
                     {topRecommendation.name}
                   </h3>
                   <p className="mb-3 opacity-90">
-                    Perfect match for {preferredCuisine} cuisine lovers
-                    {topRecommendation.distance && ` • Only ${formatDistance(topRecommendation.distance)} away`}
+                    Perfetta corrispondenza per gli amanti della cucina {preferredCuisine}
+                    {topRecommendation.distance && ` • Solo ${formatDistance(topRecommendation.distance)} di distanza`}
+                    {favorites.includes(topRecommendation.id) && " • ❤️ Nei tuoi preferiti"}
                   </p>
                   <div className="flex items-center justify-center md:justify-start space-x-4 mb-4">
                     <div className="flex items-center">
@@ -230,7 +317,10 @@ const Recommended = () => {
                     </div>
                     <span>{topRecommendation.priceRange}</span>
                     {topRecommendation.distance && (
-                      <span>{getWalkingTime(topRecommendation.distance)}</span>
+                      <span className="flex items-center">
+                        <Clock className="w-4 h-4 mr-1" />
+                        {getWalkingTime(topRecommendation.distance)}
+                      </span>
                     )}
                   </div>
                   <Button
@@ -240,14 +330,14 @@ const Recommended = () => {
                     }}
                     className="bg-white text-[hsl(var(--terracotta))] hover:bg-[hsl(var(--warm-beige))] font-semibold"
                   >
-                    View Restaurant
+                    Visualizza ristorante
                   </Button>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Other Recommendations */}
+          {/* Altri consigli */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {otherRecommendations.map((restaurant, index) => (
               <Card key={restaurant.id} className="bg-white shadow-lg">
@@ -256,11 +346,14 @@ const Recommended = () => {
                     <span className="bg-[hsl(var(--terracotta))]/10 text-[hsl(var(--terracotta))] px-2 py-1 rounded-full text-sm font-medium">
                       #{index + 2}
                     </span>
-                    {restaurant.distance && (
-                      <span className="text-[hsl(var(--dark-slate))]/60 text-sm">
-                        {formatDistance(restaurant.distance)} away
-                      </span>
-                    )}
+                    <div className="text-right text-sm text-[hsl(var(--dark-slate))]/60">
+                      {restaurant.distance && (
+                        <div>{formatDistance(restaurant.distance)} di distanza</div>
+                      )}
+                      {favorites.includes(restaurant.id) && (
+                        <div className="text-[hsl(var(--tomato))]">❤️ Preferito</div>
+                      )}
+                    </div>
                   </div>
                   
                   <img
@@ -274,7 +367,7 @@ const Recommended = () => {
                   </h4>
                   
                   <p className="text-[hsl(var(--dark-slate))]/70 mb-3 line-clamp-2">
-                    {restaurant.description}
+                    {restaurant.description || `Autentico ristorante di cucina ${restaurant.cuisine} nel cuore del Salento.`}
                   </p>
                   
                   <div className="flex items-center justify-between">
@@ -295,8 +388,19 @@ const Recommended = () => {
                       }}
                       className="text-[hsl(var(--terracotta))] hover:text-[hsl(var(--saddle))]"
                     >
-                      View Details
+                      Dettagli
                     </Button>
+                  </div>
+                  
+                  {/* Motivo del consiglio */}
+                  <div className="mt-3 text-xs text-[hsl(var(--dark-slate))]/50">
+                    {restaurant.cuisine === preferredCuisine && restaurant.priceRange === preferredPrice
+                      ? "✨ Corrisponde perfettamente alle tue preferenze"
+                      : restaurant.cuisine === preferredCuisine
+                      ? "🍽️ Cucina preferita"
+                      : restaurant.priceRange === preferredPrice
+                      ? "💰 Fascia di prezzo preferita"
+                      : "⭐ Alto rating"}
                   </div>
                 </CardContent>
               </Card>
@@ -304,17 +408,17 @@ const Recommended = () => {
           </div>
         </div>
 
-        {/* Empty State */}
+        {/* Stato vuoto */}
         {recommendations.length === 0 && (
           <div className="text-center py-12">
             <Card>
               <CardContent className="p-12">
                 <Star className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-2xl font-display font-semibold text-[hsl(var(--dark-slate))] mb-2">
-                  No recommendations available
+                  Nessun consiglio disponibile
                 </h3>
                 <p className="text-[hsl(var(--dark-slate))]/70">
-                  Try adjusting your preferences or check back later
+                  Prova ad aggiustare le tue preferenze o controlla più tardi
                 </p>
               </CardContent>
             </Card>
@@ -322,7 +426,7 @@ const Recommended = () => {
         )}
       </div>
 
-      {/* Restaurant Modal */}
+      {/* Modal del ristorante */}
       <RestaurantModal
         restaurant={selectedRestaurant}
         isOpen={isModalOpen}

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Eye, Check, Clock, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Eye, Check, Clock, Trash2, ExternalLink, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import type { Restaurant } from "@/lib/types";
+import { useRestaurants } from "@/hooks/use-firebase";
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase-config';
+import type { Restaurant, ExtractedRestaurantData } from "@/lib/types";
 
 const AddRestaurant = () => {
   const [urls, setUrls] = useState([""]);
@@ -22,65 +23,33 @@ const AddRestaurant = () => {
     description: "",
     phone: "",
     address: "",
+    rating: ""
   });
-  const [extractedData, setExtractedData] = useState<any>(null);
+  const [extractedData, setExtractedData] = useState<ExtractedRestaurantData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
 
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const { data: recentRestaurants = [] } = useQuery<Restaurant[]>({
-    queryKey: ["/api/restaurants"],
-    select: (data) => data.slice(-5).reverse(), // Get last 5 restaurants added
-  });
+  // Hook Firebase per i ristoranti
+  const { 
+    restaurants, 
+    loading: restaurantsLoading, 
+    error: restaurantsError,
+    createRestaurant 
+  } = useRestaurants();
 
-  const extractMutation = useMutation({
-    mutationFn: async (url: string) => {
-      const response = await apiRequest("POST", "/api/restaurants/extract", { url });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setExtractedData(data.extracted);
-      setIsProcessing(false);
-      toast({
-        title: "Extraction Complete",
-        description: "Restaurant data has been extracted successfully.",
-      });
-    },
-    onError: () => {
-      setIsProcessing(false);
-      toast({
-        title: "Extraction Failed",
-        description: "Failed to extract restaurant data. Please check the URL.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Ottieni gli ultimi 5 ristoranti aggiunti
+  const recentRestaurants = restaurants
+    .sort((a, b) => {
+      if (!a.createdAt || !b.createdAt) return 0;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })
+    .slice(0, 5);
 
-  const createRestaurantMutation = useMutation({
-    mutationFn: async (restaurantData: any) => {
-      const response = await apiRequest("POST", "/api/restaurants", restaurantData);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
-      setShowSuccess(true);
-      resetForm();
-      setTimeout(() => setShowSuccess(false), 5000);
-      toast({
-        title: "Restaurant Added",
-        description: "The restaurant has been added successfully and is pending approval.",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to add restaurant. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Cloud Function per l'estrazione dati
+  const extractRestaurantData = httpsCallable(functions, 'extractRestaurantData');
 
   const resetForm = () => {
     setUrls([""]);
@@ -92,8 +61,10 @@ const AddRestaurant = () => {
       description: "",
       phone: "",
       address: "",
+      rating: ""
     });
     setExtractedData(null);
+    setExtractionError(null);
   };
 
   const addUrlField = () => {
@@ -110,56 +81,91 @@ const AddRestaurant = () => {
     setUrls(newUrls);
   };
 
-  const handlePreview = () => {
+  const handlePreview = async () => {
     const firstUrl = urls[0];
-    if (!firstUrl || !firstUrl.includes('tripadvisor.com')) {
+    alert("ciao")
+    alert(!firstUrl || (!firstUrl.includes('tripadvisor.com') && !firstUrl.includes('tripadvisor.it')));
+    if (!firstUrl || (!firstUrl.includes('tripadvisor.com') && !firstUrl.includes('tripadvisor.it'))) {
       toast({
-        title: "Invalid URL",
-        description: "Please enter a valid TripAdvisor URL.",
+        title: "URL non valido",
+        description: "Inserisci un URL TripAdvisor valido.",
         variant: "destructive",
       });
       return;
     }
 
     setIsProcessing(true);
-    extractMutation.mutate(firstUrl);
+    setExtractionError(null);
+    
+    try {
+      const result = await extractRestaurantData({ url: firstUrl });
+      const data = result.data as { extracted: ExtractedRestaurantData };
+      
+      setExtractedData(data.extracted);
+      toast({
+        title: "Estrazione completata",
+        description: "Dati del ristorante estratti con successo.",
+      });
+    } catch (error: any) {
+      console.error("Errore nell'estrazione:", error);
+      const errorMessage = error.message || "Errore nell'estrazione dei dati. Controlla l'URL.";
+      setExtractionError(errorMessage);
+      toast({
+        title: "Estrazione fallita",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const firstUrl = urls[0];
     if (!firstUrl) {
       toast({
-        title: "Missing URL",
-        description: "Please enter at least one TripAdvisor URL.",
+        title: "URL mancante",
+        description: "Inserisci almeno un URL TripAdvisor.",
         variant: "destructive",
       });
       return;
     }
 
-    // Use extracted data if available, otherwise use manual data
-    const restaurantData = extractedData ? {
+    // Determina se usare dati estratti o manuali
+    const useExtracted = extractedData && !extractionError;
+    
+    if (!useExtracted && !manualData.name) {
+      toast({
+        title: "Dati incompleti",
+        description: "Inserisci almeno il nome del ristorante.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const restaurantData = useExtracted ? {
       tripadvisorUrl: firstUrl,
-      name: extractedData.name,
-      cuisine: extractedData.cuisine,
-      priceRange: extractedData.priceRange,
-      rating: extractedData.rating,
-      location: extractedData.location,
-      description: extractedData.description,
-      phone: extractedData.phone,
-      address: extractedData.address,
-      latitude: extractedData.latitude,
-      longitude: extractedData.longitude,
+      name: extractedData!.name,
+      cuisine: extractedData!.cuisine,
+      priceRange: extractedData!.priceRange,
+      rating: extractedData!.rating,
+      location: extractedData!.location,
+      description: extractedData!.description,
+      phone: extractedData!.phone,
+      address: extractedData!.address,
+      latitude: extractedData!.latitude,
+      longitude: extractedData!.longitude,
       imageUrl: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=300",
     } : {
       tripadvisorUrl: firstUrl,
-      name: manualData.name || "New Restaurant",
+      name: manualData.name || "Nuovo Ristorante",
       cuisine: manualData.cuisine || "italiana",
       priceRange: manualData.priceRange || "€€",
-      rating: "4.0",
+      rating: manualData.rating || "4.0",
       location: manualData.location || "Salento",
-      description: manualData.description || "Delicious local cuisine",
+      description: manualData.description || "Deliziosa cucina locale",
       phone: manualData.phone,
       address: manualData.address,
       latitude: "40.3515",
@@ -167,7 +173,23 @@ const AddRestaurant = () => {
       imageUrl: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=300",
     };
 
-    createRestaurantMutation.mutate(restaurantData);
+    try {
+      await createRestaurant(restaurantData);
+      setShowSuccess(true);
+      resetForm();
+      setTimeout(() => setShowSuccess(false), 5000);
+      toast({
+        title: "Ristorante aggiunto",
+        description: "Il ristorante è stato aggiunto con successo e è in attesa di approvazione.",
+      });
+    } catch (error: any) {
+      console.error("Errore nella creazione del ristorante:", error);
+      toast({
+        title: "Errore",
+        description: error.message || "Errore nell'aggiunta del ristorante. Riprova.",
+        variant: "destructive",
+      });
+    }
   };
 
   const cuisineOptions = [
@@ -180,9 +202,9 @@ const AddRestaurant = () => {
   ];
 
   const priceOptions = [
-    { value: "€", label: "€ - Budget" },
-    { value: "€€", label: "€€ - Moderate" },
-    { value: "€€€", label: "€€€ - Expensive" },
+    { value: "€", label: "€ - Economico" },
+    { value: "€€", label: "€€ - Moderato" },
+    { value: "€€€", label: "€€€ - Costoso" },
     { value: "€€€€", label: "€€€€ - Fine Dining" },
   ];
 
@@ -191,44 +213,56 @@ const AddRestaurant = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="text-center mb-8">
           <h2 className="text-3xl font-display font-bold text-[hsl(var(--dark-slate))] mb-4">
-            Add New Restaurant
+            Aggiungi nuovo ristorante
           </h2>
           <p className="text-lg text-[hsl(var(--dark-slate))]/70">
-            Help expand our database with your favorite finds
+            Aiuta ad espandere il nostro database con le tue scoperte preferite
           </p>
         </div>
 
-        {/* Success Message */}
+        {/* Messaggio di successo */}
         {showSuccess && (
           <Alert className="mb-6 bg-[hsl(var(--forest-green))]/10 border-[hsl(var(--forest-green))]/20">
             <Check className="w-4 h-4 text-[hsl(var(--forest-green))]" />
             <AlertDescription className="text-[hsl(var(--forest-green))]">
-              Restaurant added successfully! It will appear in search results after approval.
+              Ristorante aggiunto con successo! Apparirà nei risultati di ricerca dopo l'approvazione.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Add Restaurant Form */}
+        {/* Errore di estrazione */}
+        {extractionError && (
+          <Alert className="mb-6 bg-red-50 border-red-200">
+            <AlertCircle className="w-4 h-4 text-red-600" />
+            <AlertDescription className="text-red-700">
+              <strong>Errore nell'estrazione automatica:</strong> {extractionError}
+              <br />
+              <span className="text-sm">Puoi comunque compilare manualmente i campi sottostanti.</span>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Form aggiunta ristorante */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="text-xl font-display font-semibold text-[hsl(var(--dark-slate))]">
-              Restaurant Information
+              Informazioni ristorante
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* TripAdvisor URLs */}
+              {/* URL TripAdvisor */}
               <div>
                 <Label className="text-base font-medium text-[hsl(var(--dark-slate))] mb-3 block">
                   <ExternalLink className="w-4 h-4 inline mr-2 text-[hsl(var(--terracotta))]" />
-                  TripAdvisor URL *
+                  URL TripAdvisor *
                 </Label>
                 
                 {urls.map((url, index) => (
                   <div key={index} className="flex gap-2 mb-3">
                     <Input
                       type="url"
-                      placeholder="https://www.tripadvisor.com/Restaurant_Review-..."
+                      placeholder="https://www.tripadvisor.it/Restaurant_Review-..."
                       value={url}
                       onChange={(e) => updateUrl(index, e.target.value)}
                       className="flex-1"
@@ -248,61 +282,82 @@ const AddRestaurant = () => {
                   </div>
                 ))}
                 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={addUrlField}
-                  className="text-[hsl(var(--terracotta))] hover:text-[hsl(var(--saddle))]"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Another URL
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addUrlField}
+                    className="text-[hsl(var(--terracotta))] hover:text-[hsl(var(--saddle))]"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Aggiungi altro URL
+                  </Button>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePreview}
+                    disabled={isProcessing || !urls[0]}
+                    className="border-[hsl(var(--terracotta))] text-[hsl(var(--terracotta))] hover:bg-[hsl(var(--terracotta))]/10"
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    {isProcessing ? "Estrazione..." : "Estrai dati"}
+                  </Button>
+                </div>
                 
                 <p className="text-sm text-[hsl(var(--dark-slate))]/60 mt-2">
-                  Copy and paste the TripAdvisor URL of the restaurant you want to add
+                  Copia e incolla l'URL TripAdvisor del ristorante che vuoi aggiungere
                 </p>
               </div>
 
-              {/* Extracted Data Preview */}
-              {extractedData && (
+              {/* Dati estratti preview */}
+              {extractedData && !extractionError && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h3 className="font-semibold text-green-800 mb-2">Extracted Information:</h3>
+                  <h3 className="font-semibold text-green-800 mb-2">✅ Informazioni estratte:</h3>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    <p><strong>Name:</strong> {extractedData.name}</p>
-                    <p><strong>Cuisine:</strong> {extractedData.cuisine}</p>
-                    <p><strong>Price:</strong> {extractedData.priceRange}</p>
+                    <p><strong>Nome:</strong> {extractedData.name}</p>
+                    <p><strong>Cucina:</strong> {extractedData.cuisine}</p>
+                    <p><strong>Prezzo:</strong> {extractedData.priceRange}</p>
                     <p><strong>Rating:</strong> {extractedData.rating}</p>
-                    <p><strong>Location:</strong> {extractedData.location}</p>
+                    <p><strong>Località:</strong> {extractedData.location}</p>
+                    {extractedData.phone && <p><strong>Telefono:</strong> {extractedData.phone}</p>}
                   </div>
+                  <p className="text-xs text-green-700 mt-2">
+                    I dati estratti verranno utilizzati automaticamente. Puoi modificarli nei campi sotto se necessario.
+                  </p>
                 </div>
               )}
 
-              {/* Restaurant Details Form */}
+              {/* Form dettagli ristorante */}
               <div className="border-t pt-6">
                 <h3 className="text-lg font-display font-semibold text-[hsl(var(--dark-slate))] mb-4">
-                  Restaurant Details
+                  Dettagli ristorante
+                  {extractedData && !extractionError && (
+                    <span className="text-sm font-normal text-green-600 ml-2">
+                      (Compila solo se vuoi modificare i dati estratti)
+                    </span>
+                  )}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <Label htmlFor="restaurant-name">Restaurant Name *</Label>
+                    <Label htmlFor="restaurant-name">Nome ristorante *</Label>
                     <Input
                       id="restaurant-name"
-                      placeholder="Nome del ristorante"
+                      placeholder={extractedData?.name || "Nome del ristorante"}
                       value={manualData.name}
                       onChange={(e) => setManualData(prev => ({ ...prev, name: e.target.value }))}
-                      required
+                      required={!extractedData}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="cuisine-type">Cuisine Type *</Label>
+                    <Label htmlFor="cuisine-type">Tipo di cucina *</Label>
                     <Select 
                       value={manualData.cuisine} 
                       onValueChange={(value) => setManualData(prev => ({ ...prev, cuisine: value }))}
-                      required
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Seleziona tipo di cucina" />
+                        <SelectValue placeholder={extractedData?.cuisine || "Seleziona tipo di cucina"} />
                       </SelectTrigger>
                       <SelectContent>
                         {cuisineOptions.map(option => (
@@ -315,14 +370,13 @@ const AddRestaurant = () => {
                   </div>
 
                   <div>
-                    <Label htmlFor="price-range">Price Range *</Label>
+                    <Label htmlFor="price-range">Fascia di prezzo *</Label>
                     <Select 
                       value={manualData.priceRange} 
                       onValueChange={(value) => setManualData(prev => ({ ...prev, priceRange: value }))}
-                      required
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Seleziona fascia di prezzo" />
+                        <SelectValue placeholder={extractedData?.priceRange || "Seleziona fascia di prezzo"} />
                       </SelectTrigger>
                       <SelectContent>
                         {priceOptions.map(option => (
@@ -342,49 +396,47 @@ const AddRestaurant = () => {
                       min="1"
                       max="5"
                       step="0.1"
-                      placeholder="4.5"
-                      value={manualData.rating || ""}
+                      placeholder={extractedData?.rating || "4.5"}
+                      value={manualData.rating}
                       onChange={(e) => setManualData(prev => ({ ...prev, rating: e.target.value }))}
-                      required
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="location">Location *</Label>
+                    <Label htmlFor="location">Località *</Label>
                     <Input
                       id="location"
-                      placeholder="es. Lecce Centro, Gallipoli"
+                      placeholder={extractedData?.location || "es. Lecce Centro, Gallipoli"}
                       value={manualData.location}
                       onChange={(e) => setManualData(prev => ({ ...prev, location: e.target.value }))}
-                      required
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="phone">Phone</Label>
+                    <Label htmlFor="phone">Telefono</Label>
                     <Input
                       id="phone"
-                      placeholder="+39 0832 123456"
+                      placeholder={extractedData?.phone || "+39 0832 123456"}
                       value={manualData.phone}
                       onChange={(e) => setManualData(prev => ({ ...prev, phone: e.target.value }))}
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label htmlFor="address">Address</Label>
+                    <Label htmlFor="address">Indirizzo</Label>
                     <Input
                       id="address"
-                      placeholder="Via Roma 123, Lecce"
+                      placeholder={extractedData?.address || "Via Roma 123, Lecce"}
                       value={manualData.address}
                       onChange={(e) => setManualData(prev => ({ ...prev, address: e.target.value }))}
                     />
                   </div>
 
                   <div className="md:col-span-2">
-                    <Label htmlFor="description">Description</Label>
+                    <Label htmlFor="description">Descrizione</Label>
                     <Textarea
                       id="description"
-                      placeholder="Breve descrizione del ristorante"
+                      placeholder={extractedData?.description || "Breve descrizione del ristorante"}
                       value={manualData.description}
                       onChange={(e) => setManualData(prev => ({ ...prev, description: e.target.value }))}
                     />
@@ -392,55 +444,62 @@ const AddRestaurant = () => {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Pulsanti azione */}
               <div className="flex justify-end space-x-4 pt-6">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={handlePreview}
-                  disabled={isProcessing || !urls[0]}
-                  className="border-[hsl(var(--terracotta))] text-[hsl(var(--terracotta))] hover:bg-[hsl(var(--terracotta))]/10"
+                  onClick={resetForm}
+                  className="text-gray-600 hover:text-gray-800"
                 >
-                  <Eye className="w-4 h-4 mr-2" />
-                  {isProcessing ? "Extracting..." : "Preview Extract"}
+                  Resetta form
                 </Button>
                 
                 <Button
                   type="submit"
-                  disabled={createRestaurantMutation.isPending || !urls[0]}
+                  disabled={!urls[0]}
                   className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  {createRestaurantMutation.isPending ? "Adding..." : "Add Restaurant"}
+                  Aggiungi ristorante
                 </Button>
               </div>
             </form>
           </CardContent>
         </Card>
 
-        {/* Processing Status */}
+        {/* Stato di elaborazione */}
         {isProcessing && (
           <Card className="mb-6">
             <CardContent className="pt-6">
               <div className="flex items-center justify-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[hsl(var(--terracotta))] mr-4"></div>
-                <span className="text-[hsl(var(--dark-slate))]">Processing restaurant data...</span>
+                <span className="text-[hsl(var(--dark-slate))]">Elaborazione dati del ristorante...</span>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Recent Additions */}
+        {/* Aggiunte recenti */}
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl font-display font-semibold text-[hsl(var(--dark-slate))]">
-              Recent Additions
+              Aggiunte recenti
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {recentRestaurants.length === 0 ? (
+            {restaurantsLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[hsl(var(--terracotta))] mx-auto mb-4"></div>
+                <p className="text-[hsl(var(--dark-slate))]/70">Caricamento...</p>
+              </div>
+            ) : restaurantsError ? (
+              <div className="text-center py-8">
+                <p className="text-red-600">{restaurantsError}</p>
+              </div>
+            ) : recentRestaurants.length === 0 ? (
               <p className="text-[hsl(var(--dark-slate))]/70 text-center py-8">
-                No recent additions yet. Be the first to add a restaurant!
+                Nessuna aggiunta recente ancora. Sii il primo ad aggiungere un ristorante!
               </p>
             ) : (
               <div className="space-y-4">
@@ -455,7 +514,10 @@ const AddRestaurant = () => {
                           {restaurant.name}
                         </h4>
                         <p className="text-[hsl(var(--dark-slate))]/70">
-                          Added recently • {restaurant.cuisine.charAt(0).toUpperCase() + restaurant.cuisine.slice(1)} cuisine
+                          Aggiunto di recente • Cucina {restaurant.cuisine}
+                        </p>
+                        <p className="text-[hsl(var(--dark-slate))]/60 text-sm">
+                          {restaurant.location} • {restaurant.priceRange}
                         </p>
                       </div>
                     </div>
@@ -467,12 +529,12 @@ const AddRestaurant = () => {
                       {restaurant.isApproved ? (
                         <>
                           <Check className="w-4 h-4 inline mr-1" />
-                          Approved
+                          Approvato
                         </>
                       ) : (
                         <>
                           <Clock className="w-4 h-4 inline mr-1" />
-                          Processing
+                          In elaborazione
                         </>
                       )}
                     </span>

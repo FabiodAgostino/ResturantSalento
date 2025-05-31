@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useRestaurants } from "@/hooks/use-firebase";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,10 +18,16 @@ const Home = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: restaurants = [], isLoading } = useQuery<Restaurant[]>({
-    queryKey: ["/api/restaurants"],
-  });
+const { restaurants, loading: isLoading, searchRestaurants } = useRestaurants();
 
+const handleSearch = () => {
+  searchRestaurants({
+    search: searchTerm,
+    cuisine: selectedCuisine === "all" ? undefined : selectedCuisine,
+    priceRange: selectedPrice === "all" ? undefined : selectedPrice,
+    minRating: selectedRating === "all" ? undefined : parseFloat(selectedRating)
+  });
+};
   const filteredRestaurants = useMemo(() => {
     return restaurants.filter(restaurant => {
       const matchesSearch = restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
