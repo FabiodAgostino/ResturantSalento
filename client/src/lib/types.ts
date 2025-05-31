@@ -1,28 +1,27 @@
-// client/src/lib/firebase-types.ts
-// Tipi aggiornati per Firebase (ID come string invece di number)
-
+// client/src/lib/types.ts - Types finali corretti
+// Frontend type definitions matching the backend schema
 export interface Restaurant {
-  id: string;  // Cambiato da number a string per Firebase
+  id: number;
   name: string;
   tripadvisorUrl: string;
-  cuisine: string;
+  cuisines: string[]; // Array di stringhe
   priceRange: string;
   rating: string;
   location: string;
-  latitude?: string;
-  longitude?: string;
-  description?: string;
-  phone?: string;
-  hours?: string;
-  address?: string;
-  imageUrl?: string;
+  latitude?: string | null;
+  longitude?: string | null;
+  description?: string | null;
+  phone?: string | null;
+  hours?: string | null;
+  address?: string | null;
+  imageUrl?: string | null;
   isApproved?: boolean;
   createdAt?: Date;
 }
 
 export interface Booking {
-  id: string;  // Cambiato da number a string per Firebase
-  restaurantId: string;  // Cambiato da number a string
+  id: number;
+  restaurantId: number;
   date: Date;
   time: string;
   notes?: string;
@@ -30,7 +29,7 @@ export interface Booking {
 }
 
 export interface User {
-  id: string;  // Cambiato da number a string per Firebase
+  id: number;
   username: string;
   password: string;
 }
@@ -39,7 +38,7 @@ export interface User {
 export interface InsertRestaurant {
   name: string;
   tripadvisorUrl: string;
-  cuisine: string;
+  cuisines: string[];
   priceRange: string;
   rating: string;
   location: string;
@@ -53,7 +52,7 @@ export interface InsertRestaurant {
 }
 
 export interface InsertBooking {
-  restaurantId: string;  // Cambiato da number a string
+  restaurantId: number;
   date: Date;
   time: string;
   notes?: string;
@@ -67,7 +66,7 @@ export interface InsertUser {
 // Filter types for restaurant search
 export interface RestaurantFilters {
   search?: string;
-  cuisine?: string;
+  cuisines?: string[];
   priceRange?: string;
   minRating?: number;
 }
@@ -96,7 +95,7 @@ export interface AddRestaurantFormData {
   tripadvisorUrl: string;
   additionalUrls?: string[];
   name?: string;
-  cuisine?: string;
+  cuisines?: string[];
   priceRange?: string;
   location?: string;
   description?: string;
@@ -114,7 +113,7 @@ export interface BookingFormData {
 // API response types
 export interface ExtractedRestaurantData {
   name: string;
-  cuisine: string;
+  cuisines: string[];
   priceRange: string;
   rating: string;
   location: string;
@@ -161,3 +160,39 @@ export const RATING_OPTIONS = [
 export type CuisineType = typeof CUISINE_OPTIONS[number]["value"];
 export type PriceRangeType = typeof PRICE_OPTIONS[number]["value"];
 export type RatingType = typeof RATING_OPTIONS[number]["value"];
+
+// Helper functions per le cuisines
+export const formatCuisines = (cuisines: string[]): string => {
+  return cuisines.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(", ");
+};
+
+export const getCuisineLabel = (value: string): string => {
+  const option = CUISINE_OPTIONS.find(opt => opt.value === value);
+  return option ? option.label : value.charAt(0).toUpperCase() + value.slice(1);
+};
+
+// Utility function per normalizzare cuisines (backward compatibility)
+export const normalizeCuisines = (cuisines: any): string[] => {
+  if (!cuisines) return [];
+  
+  // Se è già un array, ritornalo
+  if (Array.isArray(cuisines)) return cuisines;
+  
+  // Se è una stringa, prova a parsarla come JSON
+  if (typeof cuisines === 'string') {
+    try {
+      const parsed = JSON.parse(cuisines);
+      return Array.isArray(parsed) ? parsed : [cuisines];
+    } catch {
+      // Se non è JSON valido, trattala come singola cucina
+      return [cuisines];
+    }
+  }
+  
+  return [];
+};
+
+// Utility function per validare cuisine types
+export const isValidCuisineType = (cuisine: string): cuisine is CuisineType => {
+  return CUISINE_OPTIONS.some(option => option.value === cuisine);
+};

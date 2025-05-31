@@ -150,7 +150,7 @@ export class RestaurantValidator {
       errors.push("URL TripAdvisor non valido");
     }
     
-    if (!data.cuisine) {
+    if (!data.cuisines) {
       errors.push("Tipo di cucina obbligatorio");
     }
     

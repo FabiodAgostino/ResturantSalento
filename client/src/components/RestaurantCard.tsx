@@ -1,9 +1,11 @@
+// client/src/components/RestaurantCard.tsx - Aggiornato per multiple cuisines
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Heart, MapPin, Star } from "lucide-react";
 import type { Restaurant } from "@/lib/types";
 import { useFavorites } from "@/hooks/use-favorites";
+import { getCuisineLabel } from "@/lib/types";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -54,6 +56,11 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
     );
   };
 
+  // Gestisce sia array che string (per backward compatibility)
+  const cuisines = Array.isArray(restaurant.cuisines) 
+    ? restaurant.cuisines 
+    : [restaurant.cuisines];
+
   return (
     <Card className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer">
       <div className="relative">
@@ -98,10 +105,18 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
           {restaurant.description}
         </p>
         
+        {/* AGGIORNATO: Mostra multiple cuisine tags */}
         <div className="flex flex-wrap gap-2 mb-4">
-          <Badge className={getCuisineColor(restaurant.cuisine)}>
-            {restaurant.cuisine.charAt(0).toUpperCase() + restaurant.cuisine.slice(1)}
-          </Badge>
+          {cuisines.slice(0, 3).map((cuisine, index) => (
+            <Badge key={index} className={getCuisineColor(cuisine)}>
+              {getCuisineLabel(cuisine)}
+            </Badge>
+          ))}
+          {cuisines.length > 3 && (
+            <Badge className="bg-gray-100 text-gray-700">
+              +{cuisines.length - 3}
+            </Badge>
+          )}
         </div>
         
         <div className="flex justify-between items-center">
