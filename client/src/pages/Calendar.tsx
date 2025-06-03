@@ -122,15 +122,15 @@ const Calendar = () => {
   };
 
   // Converti le prenotazioni in eventi del calendario
-  const calendarEvents = bookings.map(booking => {
-    const restaurant = restaurants.find(r => r.id === booking.restaurantId);
-    return {
-      id: booking.id.toString(), // Conversione da number a string per CalendarEvent
-      title: `${restaurant?.name || 'Ristorante'} ${booking.time}`,
-      date: new Date(booking.date),
-      color: 'bg-[hsl(var(--terracotta))] text-white',
-    };
-  });
+const calendarEvents = bookings.map(booking => {
+  const restaurant = restaurants.find(r => r.id === booking.restaurantId);
+  return {
+    id: booking.id, // Ora è compatibile (number -> number)
+    title: `${restaurant?.name || 'Ristorante'} ${booking.time}`,
+    date: new Date(booking.date),
+    color: 'bg-[hsl(var(--terracotta))] text-white',
+  };
+});
 
   // Filtra le prenotazioni future e ordinale per data
   const upcomingBookings = bookings

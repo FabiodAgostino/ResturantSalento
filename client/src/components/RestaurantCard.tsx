@@ -8,6 +8,7 @@ import { useFavorites } from "@/hooks/use-favorites";
 import { getCuisineLabel } from "@/lib/types";
 import { getRestaurantPlaceholder, isValidImageUrl } from "@/utils/TripAdvisorImageExtractor";
 import { useState } from "react";
+import { getCuisineColor } from "@/utils/UtilsMethods";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -28,17 +29,6 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
   );
   const [imageError, setImageError] = useState(false);
 
-  const getCuisineColor = (cuisine: string) => {
-    const colors: Record<string, string> = {
-      pugliese: "bg-[hsl(var(--forest-green))]/10 text-[hsl(var(--forest-green))]",
-      italiana: "bg-[hsl(var(--olive-drab))]/10 text-[hsl(var(--olive-drab))]",
-      pesce: "bg-blue-100 text-blue-700",
-      barbecue: "bg-red-100 text-red-700",
-      steakhouse: "bg-gray-100 text-gray-700",
-      mediterranea: "bg-[hsl(var(--olive-drab))]/10 text-[hsl(var(--olive-drab))]",
-    };
-    return colors[cuisine] || "bg-gray-100 text-gray-700";
-  };
 
   const renderStars = (rating: string) => {
     const numRating = parseFloat(rating);
@@ -85,7 +75,7 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
           } bg-white/80 hover:bg-white/90`}
           onClick={handleFavoriteClick}
         >
-          <Heart className={`w-5 h-5 ${Boolean(restaurant.favorite) ? "fill-current" : "fill-current"}`} />
+          <Heart className={`w-5 h-5 ${Boolean(restaurant.favorite) ? "fill-current" : ""}`} />
         </Button>
       </div>
       

@@ -6,6 +6,7 @@ import type { Restaurant } from "@/lib/types";
 import { useFavorites } from "@/hooks/use-favorites";
 import BookingModal from "@/components/BookingModal";
 import { useState } from "react";
+import { getCuisineColor } from "@/utils/UtilsMethods";
 interface RestaurantModalProps {
   restaurant: Restaurant | null;
   isOpen: boolean;
@@ -20,7 +21,10 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
   const handleBookVisit = () => {
   setIsBookingModalOpen(true);
 };
-
+ const handleBookingClose = () => {
+    setIsBookingModalOpen(false);
+    onClose(); // Chiude anche il RestaurantModal
+  };
   if (!restaurant) return null;
   const isFavorite = favorites.includes(restaurant.id);
 
@@ -28,18 +32,7 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
     toggleFavorite(restaurant.id);
   };
  
- const getCuisineColor = (cuisine: string) => {
-    const colors: Record<string, string> = {
-      pugliese: "bg-[hsl(var(--forest-green))]/10 text-[hsl(var(--forest-green))]",
-      italiana: "bg-[hsl(var(--olive-drab))]/10 text-[hsl(var(--olive-drab))]",
-      pesce: "bg-blue-100 text-blue-700",
-      barbecue: "bg-red-100 text-red-700",
-      steakhouse: "bg-gray-100 text-gray-700",
-      mediterranea: "bg-[hsl(var(--olive-drab))]/10 text-[hsl(var(--olive-drab))]",
-    };
-    return colors[cuisine] || "bg-gray-100 text-gray-700";
-  };
-  const handleGetDirections = () => {
+ const handleGetDirections = () => {
     if (restaurant.latitude && restaurant.longitude) {
       const url = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.latitude},${restaurant.longitude}`;
       window.open(url, '_blank');
@@ -191,7 +184,7 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
     <BookingModal
       restaurant={restaurant}
       isOpen={isBookingModalOpen}
-      onClose={() => setIsBookingModalOpen(false)}
+      onClose={handleBookingClose} 
     />
   </>
   );

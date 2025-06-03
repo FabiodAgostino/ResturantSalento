@@ -1,7 +1,6 @@
 // client/src/services/restaurant-service.ts
 import { apiRequest } from "@/lib/queryClient";
-import type { Restaurant, InsertRestaurant, Booking } from "@/lib/types";
-import { InsertBooking } from "@shared/schema";
+import type { Restaurant, InsertRestaurant, Booking, InsertBooking } from "@/lib/types";
 
 export interface ExtractedRestaurantData {
   name: string;
@@ -313,7 +312,7 @@ export class RestaurantService {
   /**
    * Crea una nuova prenotazione
    */
-  static async createBooking(bookingData: any): Promise<Booking> {
+  static async createBooking(bookingData: InsertBooking): Promise<Booking> {
     console.log("CIAOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
     try {
       console.log(bookingData.restaurantId);

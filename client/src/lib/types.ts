@@ -37,6 +37,7 @@ export interface User {
 
 // API request/response types
 export interface InsertRestaurant {
+  id: number;
   name: string;
   tripadvisorUrl: string;
   cuisines: string[];
@@ -50,6 +51,7 @@ export interface InsertRestaurant {
   hours?: string;
   address?: string;
   imageUrl?: string;
+  favorite?: boolean;
 }
 
 export interface InsertBooking {
@@ -85,7 +87,7 @@ export interface GeolocationError {
 
 // Calendar event types
 export interface CalendarEvent {
-  id: string;
+  id: number;
   title: string;
   date: Date;
   color: string;

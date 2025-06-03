@@ -2,7 +2,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertRestaurantSchema, insertBookingSchema } from "@shared/schema";
 import { z } from "zod";
 import axios from "axios";
 import * as cheerio from "cheerio";
@@ -93,8 +92,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Validazione con lo schema
-      const validatedData = insertRestaurantSchema.parse(req.body);
-      const restaurant = await storage.createRestaurant(validatedData);
+      const restaurant = await storage.createRestaurant(req.body);
       
       res.status(201).json(restaurant);
     } catch (error) {
@@ -366,8 +364,7 @@ if (allPictures.length > 0) {
 
   app.post("/api/bookings", async (req, res) => {
     try {
-      const validatedData = insertBookingSchema.parse(req.body);
-      const booking = await storage.createBooking(validatedData);
+      const booking = await storage.createBooking(req.body);
       res.status(201).json(booking);
     } catch (error) {
       console.error("Booking creation error:", error);

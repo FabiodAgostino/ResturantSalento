@@ -2,7 +2,7 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import type { IStorage } from "./storage";
-import type { User, InsertUser, Restaurant, InsertRestaurant, Booking, InsertBooking } from "@shared/schema";
+import { Booking, InsertBooking, InsertRestaurant, Restaurant } from '@/lib/types';
 
 // Helper function per convertire Timestamp di Firestore in Date
 function toDate(value: any): Date {

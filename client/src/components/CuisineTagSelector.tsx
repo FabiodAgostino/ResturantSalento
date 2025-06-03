@@ -7,6 +7,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Check, Plus, X } from "lucide-react";
 import { CUISINE_OPTIONS, type CuisineType, getCuisineLabel } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { getCuisineColor } from '@/utils/UtilsMethods';
 
 interface CuisineTagSelectorProps {
   selectedCuisines: string[];
@@ -32,18 +33,6 @@ const CuisineTagSelector: React.FC<CuisineTagSelectorProps> = ({
 
   const removeCuisine = (cuisine: string) => {
     onCuisinesChange(selectedCuisines.filter(c => c !== cuisine));
-  };
-
-  const getCuisineColor = (cuisine: string) => {
-    const colors: Record<string, string> = {
-      pugliese: "bg-[hsl(var(--forest-green))]/10 text-[hsl(var(--forest-green))] border-[hsl(var(--forest-green))]/20",
-      italiana: "bg-[hsl(var(--olive-drab))]/10 text-[hsl(var(--olive-drab))] border-[hsl(var(--olive-drab))]/20",
-      pesce: "bg-blue-100 text-blue-700 border-blue-200",
-      barbecue: "bg-red-100 text-red-700 border-red-200",
-      steakhouse: "bg-gray-100 text-gray-700 border-gray-200",
-      mediterranea: "bg-[hsl(var(--olive-drab))]/10 text-[hsl(var(--olive-drab))] border-[hsl(var(--olive-drab))]/20",
-    };
-    return colors[cuisine] || "bg-gray-100 text-gray-700 border-gray-200";
   };
 
   const availableCuisines = CUISINE_OPTIONS.filter(

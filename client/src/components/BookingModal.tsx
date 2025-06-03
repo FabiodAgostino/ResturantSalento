@@ -58,15 +58,22 @@ const BookingModal = ({ restaurant, isOpen, onClose }: BookingModalProps) => {
       return;
     }
    const bookingData = {
-  restaurantId: Number(restaurant.id), // Assicurati che sia un numero
-  date: new Date(formData.date + "T00:00:00.000Z"), // Formato ISO completo
-  time: formData.time.trim(), // Rimuovi spazi extra
-  notes: formData.notes?.trim() || undefined, // Gestisci stringhe vuote
-};
+      restaurantId: Number(restaurant.id), // Assicurati che sia un numero
+      date: new Date(formData.date + "T00:00:00.000Z"), // Formato ISO completo
+      time: formData.time.trim(), // Rimuovi spazi extra
+      notes: formData.notes?.trim() || undefined, // Gestisci stringhe vuote
+    };
     try
     {
-    var booking = await RestaurantService.createBooking(bookingData);
-
+      var booking = await RestaurantService.createBooking(bookingData);
+      if(booking)
+      {
+        toast({
+        title: "Prenotazione Aggiunta",
+        description: "La prenotazione è stata aggiunta",
+      });
+       handleClose();
+      }
     }catch(ex)
     {
 
@@ -105,8 +112,11 @@ const BookingModal = ({ restaurant, isOpen, onClose }: BookingModalProps) => {
           <div className="bg-[hsl(var(--warm-beige))] p-3 rounded-lg">
             <h4 className="font-semibold text-[hsl(var(--dark-slate))]">{restaurant.name}</h4>
             <p className="text-sm text-[hsl(var(--dark-slate))]/70">{restaurant.location}</p>
-            <p className="text-sm text-[hsl(var(--terracotta))]">{restaurant.priceRange} • {restaurant.cuisines}</p>
+           <p className="text-sm text-[hsl(var(--terracotta))]">
+            {restaurant.priceRange} • {restaurant.cuisines.join(', ')}
+          </p>
           </div>
+          
 
           {/* Data */}
           <div>

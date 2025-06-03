@@ -1,13 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarEvent } from "@/lib/types";
 
-interface CalendarEvent {
-  id: string;
-  title: string;
-  date: Date;
-  color: string;
-}
 
 interface CalendarViewProps {
   events?: CalendarEvent[];
