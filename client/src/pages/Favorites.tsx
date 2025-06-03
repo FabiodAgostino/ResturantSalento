@@ -23,7 +23,7 @@ const Favorites = () => {
 
   // Filtra i ristoranti preferiti
   const favoriteRestaurants = restaurants.filter(restaurant => 
-    favorites.includes(restaurant.id.toString())
+    favorites.includes(restaurant.id)
   );
 
   const handleViewDetails = (restaurant: Restaurant) => {

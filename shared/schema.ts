@@ -20,6 +20,7 @@ export const restaurants = pgTable("restaurants", {
   address: text("address"),
   imageUrl: text("image_url"),
   isApproved: boolean("is_approved").default(false),
+  favorite: boolean("favorite").default(false),
   createdAt: timestamp("created_at").defaultNow()
 });
 
@@ -46,6 +47,7 @@ export type CuisineType = typeof VALID_CUISINES[number];
 
 // Schema per l'input che accetta array di stringhe
 export const insertRestaurantSchema = z.object({
+  id: z.number().optional(),
   name: z.string().min(1, "Nome richiesto"),
   tripadvisorUrl: z.string().url("URL TripAdvisor valido richiesto"),
   cuisines: z.array(z.enum(VALID_CUISINES)).min(1, "Almeno un tipo di cucina è richiesto"),
@@ -58,6 +60,7 @@ export const insertRestaurantSchema = z.object({
   phone: z.string().optional(),
   hours: z.string().optional(),
   address: z.string().optional(),
+  favorite: z.boolean().default(false),
   imageUrl: z.string().optional()
 });
 
@@ -90,6 +93,7 @@ export type Restaurant = {
   imageUrl?: string;
   isApproved?: boolean;
   createdAt?: Date;
+  favorite?: boolean;
 };
 
 export type InsertBooking = z.infer<typeof insertBookingSchema>;
@@ -136,7 +140,8 @@ export const convertDbToApp = (dbRestaurant: RestaurantDB): Restaurant => {
     address: dbRestaurant.address || undefined,
     imageUrl: dbRestaurant.imageUrl || undefined,
     isApproved: dbRestaurant.isApproved || undefined,
-    createdAt: dbRestaurant.createdAt || undefined
+    createdAt: dbRestaurant.createdAt || undefined,
+    favorite: dbRestaurant.favorite || undefined
   };
 };
 

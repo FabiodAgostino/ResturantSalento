@@ -14,13 +14,11 @@ import {
   convertAppToDb,
   type CuisineType
 } from "@shared/schema";
-
+import { FirestoreStorage } from "./firestore-storage";
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
 export interface IStorage {
-  // User methods
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
-
   // Restaurant methods
   getAllRestaurants(): Promise<Restaurant[]>;
   getRestaurant(id: number): Promise<Restaurant | undefined>;
@@ -43,6 +41,7 @@ export interface IStorage {
   deleteBooking(id: number): Promise<boolean>;
 }
 
+
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
   private restaurants: Map<number, RestaurantDB>; // Salva nel formato DB
@@ -60,21 +59,6 @@ export class MemStorage implements IStorage {
     this.currentBookingId = 1;
   }
 
-  // User methods
-  async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(user => user.username === username);
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
-  }
 
   // Restaurant methods
   async getAllRestaurants(): Promise<Restaurant[]> {
@@ -90,7 +74,6 @@ export class MemStorage implements IStorage {
   async createRestaurant(insertRestaurant: InsertRestaurant): Promise<Restaurant> {
     const id = this.currentRestaurantId++;
     
-    console.log("Creating restaurant with input:", insertRestaurant);
     
     // Crea direttamente il formato DB
     const dbRestaurant: RestaurantDB = {
@@ -108,17 +91,16 @@ export class MemStorage implements IStorage {
       hours: insertRestaurant.hours || null,
       address: insertRestaurant.address || null,
       imageUrl: insertRestaurant.imageUrl || null,
+      favorite: insertRestaurant.favorite || null,
       isApproved: true,
       createdAt: new Date()
     };
 
-    console.log("DB restaurant to store:", dbRestaurant);
     
     this.restaurants.set(id, dbRestaurant);
     
     // Ritorna nel formato app
     const appRestaurant = convertDbToApp(dbRestaurant);
-    console.log("Returning app restaurant:", appRestaurant);
     
     return appRestaurant;
   }
@@ -147,9 +129,6 @@ export class MemStorage implements IStorage {
   }): Promise<Restaurant[]> {
     const allRestaurants = await this.getAllRestaurants();
     
-    console.log("Filtering restaurants with filters:", filters);
-    console.log("Total restaurants:", allRestaurants.length);
-    
     return allRestaurants.filter(restaurant => {
       const matchesSearch = !filters.search || 
         restaurant.name.toLowerCase().includes(filters.search.toLowerCase()) ||
@@ -165,16 +144,6 @@ export class MemStorage implements IStorage {
       const matchesRating = !filters.minRating || parseFloat(restaurant.rating) >= filters.minRating;
 
       const matches = matchesSearch && matchesCuisines && matchesPrice && matchesRating;
-      
-      if (filters.cuisines && filters.cuisines.length > 0) {
-        console.log(`Restaurant ${restaurant.name}:`, {
-          cuisines: restaurant.cuisines,
-          filterCuisines: filters.cuisines,
-          matchesCuisines,
-          matches
-        });
-      }
-
       return matches;
     });
   }
@@ -218,4 +187,38 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+
+export const storage: IStorage = createStorage();
+
+  function createStorage(): IStorage {
+const envPath = path.resolve(process.cwd(), '.env');
+console.log('🔍 Loading .env from:', envPath);
+
+if (fs.existsSync(envPath)) {
+  const result = dotenv.config({ path: envPath });
+  if (result.error) {
+    console.error('❌ Error loading .env:', result.error);
+  } else {
+    console.log('✅ .env loaded successfully');
+    
+    // Debug delle variabili Firebase (senza mostrare le credenziali complete)
+    console.log('🔧 Firebase Environment Check:');
+    console.log('- FIREBASE_PROJECT_ID:', process.env.FIREBASE_PROJECT_ID || 'MISSING');
+    console.log('- FIREBASE_CLIENT_EMAIL:', process.env.FIREBASE_CLIENT_EMAIL ? 'SET' : 'MISSING');
+    console.log('- FIREBASE_PRIVATE_KEY:', process.env.FIREBASE_PRIVATE_KEY ? 'SET (length: ' + process.env.FIREBASE_PRIVATE_KEY.length + ')' : 'MISSING');
+    console.log('- USE_FIRESTORE:', process.env.USE_FIRESTORE);
+  }
+} else {
+  console.error('❌ .env file not found at:', envPath);
+}
+  const useFirestore = process.env.USE_FIRESTORE === 'true' || 
+                       process.env.NODE_ENV === 'production';
+  
+  if (useFirestore) {
+    console.log('🔥 Usando Firestore come database');
+    return new FirestoreStorage();
+  } else {
+    console.log('💾 Usando storage in memoria');
+    return new MemStorage();
+  }
+}

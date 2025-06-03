@@ -16,7 +16,7 @@ const Calendar = () => {
   const [isAddBookingOpen, setIsAddBookingOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [formData, setFormData] = useState({
-    restaurantId: "",
+    restaurantId: "", // Manteniamo come string per il form
     date: "",
     time: "",
     notes: "",
@@ -63,7 +63,7 @@ const Calendar = () => {
 
     try {
       await createBooking({
-        restaurantId: formData.restaurantId,
+        restaurantId: parseInt(formData.restaurantId), // Conversione da string a number
         date: new Date(formData.date + "T00:00:00"),
         time: formData.time,
         notes: formData.notes,
@@ -85,7 +85,7 @@ const Calendar = () => {
     }
   };
 
-  const handleUpdateBooking = async (bookingId: string, updates: Partial<Booking>) => {
+  const handleUpdateBooking = async (bookingId: number, updates: Partial<Booking>) => {
     try {
       await updateBooking(bookingId, updates);
       toast({
@@ -102,7 +102,7 @@ const Calendar = () => {
     }
   };
 
-  const handleDeleteBooking = async (bookingId: string) => {
+  const handleDeleteBooking = async (bookingId: number) => {
     if (confirm("Sei sicuro di voler eliminare questa prenotazione?")) {
       try {
         await deleteBooking(bookingId);
@@ -125,7 +125,7 @@ const Calendar = () => {
   const calendarEvents = bookings.map(booking => {
     const restaurant = restaurants.find(r => r.id === booking.restaurantId);
     return {
-      id: booking.id,
+      id: booking.id.toString(), // Conversione da number a string per CalendarEvent
       title: `${restaurant?.name || 'Ristorante'} ${booking.time}`,
       date: new Date(booking.date),
       color: 'bg-[hsl(var(--terracotta))] text-white',
@@ -218,7 +218,7 @@ const Calendar = () => {
                         </SelectTrigger>
                         <SelectContent>
                           {restaurants.map(restaurant => (
-                            <SelectItem key={restaurant.id} value={restaurant.id}>
+                            <SelectItem key={restaurant.id} value={restaurant.id.toString()}>
                               {restaurant.name} - {restaurant.location}
                             </SelectItem>
                           ))}

@@ -16,11 +16,10 @@ interface RestaurantCardProps {
 
 const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
   const { favorites, toggleFavorite } = useFavorites();
-  const isFavorite = favorites.includes(restaurant.id.toString());
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleFavorite(restaurant.id.toString());
+    toggleFavorite(restaurant.id);
   };
   const [imageUrl, setImageUrl] = useState(
     restaurant.imageUrl && isValidImageUrl(restaurant.imageUrl) 
@@ -68,7 +67,6 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
   const cuisines = Array.isArray(restaurant.cuisines) 
     ? restaurant.cuisines 
     : [restaurant.cuisines];
-
   return (
     <Card className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer">
       <div className="relative">
@@ -81,13 +79,13 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
           variant="ghost"
           size="icon"
           className={`absolute top-2 right-2 ${
-            isFavorite 
+            Boolean(restaurant.favorite)
               ? "text-[hsl(var(--tomato))] hover:text-red-600" 
               : "text-gray-400 hover:text-[hsl(var(--tomato))]"
           } bg-white/80 hover:bg-white/90`}
           onClick={handleFavoriteClick}
         >
-          <Heart className={`w-5 h-5 ${isFavorite ? "fill-current" : ""}`} />
+          <Heart className={`w-5 h-5 ${Boolean(restaurant.favorite) ? "fill-current" : "fill-current"}`} />
         </Button>
       </div>
       

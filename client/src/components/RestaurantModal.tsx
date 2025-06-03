@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Clock, DollarSign, Star, Calendar, ArrowRight, Heart, Globe } from "lucide-react";
 import type { Restaurant } from "@/lib/types";
 import { useFavorites } from "@/hooks/use-favorites";
-
+import BookingModal from "@/components/BookingModal";
+import { useState } from "react";
 interface RestaurantModalProps {
   restaurant: Restaurant | null;
   isOpen: boolean;
@@ -14,14 +15,19 @@ interface RestaurantModalProps {
 
 const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: RestaurantModalProps) => {
   const { favorites, toggleFavorite } = useFavorites();
+ const [isBookingModalOpen, setIsBookingModalOpen] = useState(false); 
+
+  const handleBookVisit = () => {
+  setIsBookingModalOpen(true);
+};
 
   if (!restaurant) return null;
-
-  const isFavorite = favorites.includes(restaurant.id.toString());
+  const isFavorite = favorites.includes(restaurant.id);
 
   const handleFavoriteClick = () => {
-    toggleFavorite(restaurant.id.toString());
+    toggleFavorite(restaurant.id);
   };
+ 
  const getCuisineColor = (cuisine: string) => {
     const colors: Record<string, string> = {
       pugliese: "bg-[hsl(var(--forest-green))]/10 text-[hsl(var(--forest-green))]",
@@ -64,6 +70,8 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
   };
 
   return (
+      <>
+
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -151,7 +159,7 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
           <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t">
             <Button
               className="flex-1 bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))] transition-colors font-medium"
-              onClick={() => onBookVisit?.(restaurant)}
+              onClick={handleBookVisit} 
             >
               <Calendar className="w-4 h-4 mr-2" />
               Prenota
@@ -179,7 +187,16 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
         </div>
       </DialogContent>
     </Dialog>
+
+    <BookingModal
+      restaurant={restaurant}
+      isOpen={isBookingModalOpen}
+      onClose={() => setIsBookingModalOpen(false)}
+    />
+  </>
   );
+ 
+
 };
 
 export default RestaurantModal;

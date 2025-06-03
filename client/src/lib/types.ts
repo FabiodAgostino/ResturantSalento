@@ -15,6 +15,7 @@ export interface Restaurant {
   hours?: string | null;
   address?: string | null;
   imageUrl?: string | null;
+  favorite?: boolean;
   isApproved?: boolean;
   createdAt?: Date;
 }

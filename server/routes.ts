@@ -34,9 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         minRating: minRating ? parseFloat(minRating as string) : undefined
       };
 
-      console.log("API - Getting restaurants with filters:", filters);
       const restaurants = await storage.searchRestaurants(filters);
-      console.log("API - Returning restaurants:", restaurants.length);
       
       res.json(restaurants);
     } catch (error) {
@@ -44,6 +42,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch restaurants" });
     }
   });
+
+  app.put("/api/restaurants/:id", async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const updates = req.body;
+    
+    // Validazione base per il campo favorite
+    if ('favorite' in updates && typeof updates.favorite !== 'boolean') {
+      return res.status(400).json({ 
+        message: "Il campo 'favorite' deve essere un valore booleano" 
+      });
+    }
+    
+    const restaurant = await storage.updateRestaurant(id, updates);
+    
+    if (!restaurant) {
+      return res.status(404).json({ message: "Ristorante non trovato" });
+    }
+    
+    res.json(restaurant);
+  } catch (error) {
+    console.error("Errore nell'aggiornamento del ristorante:", error);
+    res.status(500).json({ message: "Errore nell'aggiornamento del ristorante" });
+  }
+});
 
   app.get("/api/restaurants/:id", async (req, res) => {
     try {
@@ -63,7 +86,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/restaurants", async (req, res) => {
     try {
-      console.log("API - Creating restaurant with body:", req.body);
       
       // Assicurati che cuisines sia un array
       if (req.body.cuisines && !Array.isArray(req.body.cuisines)) {
@@ -72,10 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Validazione con lo schema
       const validatedData = insertRestaurantSchema.parse(req.body);
-      console.log("API - Validated data:", validatedData);
-      
       const restaurant = await storage.createRestaurant(validatedData);
-      console.log("API - Created restaurant:", restaurant);
       
       res.status(201).json(restaurant);
     } catch (error) {
@@ -93,15 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/restaurants/extract", async (req, res) => {
     try {
-      console.log("=== EXTRACT ENDPOINT ===");
-      console.log("Request body:", req.body);
-      console.log("Content-Type:", req.headers['content-type']);
-      
       const { url } = req.body;
-      
-      console.log("Extracted URL:", url);
-      console.log("URL type:", typeof url);
-      
       // Validazione più dettagliata
       if (!url) {
         console.log("ERROR: URL is missing or empty");
@@ -121,7 +132,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Trim dell'URL per rimuovere spazi
       const trimmedUrl = url.trim();
-      console.log("Trimmed URL:", trimmedUrl);
       
       if (!trimmedUrl.includes('tripadvisor.com') && !trimmedUrl.includes('tripadvisor.it')) {
         console.log("ERROR: URL does not contain tripadvisor domain");
@@ -130,8 +140,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           received: trimmedUrl
         });
       }
-
-      console.log("URL validation passed, proceeding with extraction...");
 
       // Web scraping implementation
       const response = await axios.get(trimmedUrl, {
@@ -152,14 +160,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                    $('.HjBfq').first().text().trim() ||
                    "Restaurant";
 
-      console.log("Extracted name:", name);
-
       // Extract rating
       const ratingText = $('.biGQs._P.pZUbB.KxBGd').first().text().trim();
       const ratingMatch = ratingText.match(/(\d+\.?\d*)/);
       const rating = ratingMatch ? ratingMatch[1] : "4.0";
 
-      console.log("Extracted rating:", rating);
 
       // Extract price range
       let priceRange = "€€";
@@ -176,7 +181,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
 
-      console.log("Extracted price range:", priceRange);
 
       // Extract multiple cuisine types
       const cuisines: string[] = [];
@@ -189,18 +193,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         'steakhouse': ['steakhouse', 'steak', 'bistecca', 'carne', 'beef', 'braceria']
       };
 
-      console.log("Looking for cuisine types...");
 
       // Cerca nella classe specifica per le cuisines
       $('.biGQs._P.pZUbB.KxBGd').each((i, elem) => {
         const text = $(elem).text().trim().toLowerCase();
-        console.log(`Cuisine text ${i}:`, text);
         
         Object.entries(cuisineMapping).forEach(([cuisineType, keywords]) => {
           if (keywords.some(keyword => text.includes(keyword))) {
             if (!cuisines.includes(cuisineType)) {
               cuisines.push(cuisineType);
-              console.log(`Found cuisine: ${cuisineType} from text: ${text}`);
             }
           }
         });
@@ -208,7 +209,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Fallback search in other areas
       if (cuisines.length === 0) {
-        console.log("No cuisines found in main section, searching fallback areas...");
         
         $('[data-test-target="restaurant-detail-overview"]').find('span, div').each((i, elem) => {
           const text = $(elem).text().trim().toLowerCase();
@@ -216,7 +216,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (keywords.some(keyword => text.includes(keyword))) {
               if (!cuisines.includes(cuisineType)) {
                 cuisines.push(cuisineType);
-                console.log(`Found cuisine in fallback: ${cuisineType}`);
               }
             }
           });
@@ -229,7 +228,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (keywords.some(keyword => text.includes(keyword))) {
               if (!cuisines.includes(cuisineType)) {
                 cuisines.push(cuisineType);
-                console.log(`Found cuisine in breadcrumb: ${cuisineType}`);
               }
             }
           });
@@ -239,10 +237,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Default fallback
       if (cuisines.length === 0) {
         cuisines.push('italiana');
-        console.log("No cuisines found, using default: italiana");
       }
 
-      console.log("Final extracted cuisines:", cuisines);
 
       // Extract other data
       const description = $('.biGQs._P.pZUbB.avBIb.KxBGd').first().text().trim() ||
@@ -262,13 +258,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       $('a').each((i, elem) => {
         const href = $(elem).attr('href');
         if (href && (href.includes('maps.google.com') || href.includes('goo.gl/maps'))) {
-          console.log("Found maps link:", href);
           
           const coordMatch = href.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
           if (coordMatch) {
             latitude = coordMatch[1];
             longitude = coordMatch[2];
-            console.log(`Extracted coordinates: ${latitude}, ${longitude}`);
           }
           
           // Extract location from address
@@ -277,7 +271,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             const addressParts = decodeURIComponent(addressMatch[1]).split(',');
             if (addressParts.length > 1) {
               location = addressParts[addressParts.length - 2].trim();
-              console.log("Extracted location from maps:", location);
             }
           }
         }
@@ -291,7 +284,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      console.log("Final location:", location);
 
       // *** NUOVA SEZIONE: Estrazione dell'immagine principale ***
     
@@ -313,14 +305,12 @@ if (allPictures.length > 0) {
       const srcset = img.attr('srcset');
       // Controlla se contiene URL TripAdvisor validi
       if (srcset && srcset.includes('tripadvisor.com/media/photo')) {
-        console.log("CE FOOOSCHIO")
         const srcsetUrls = srcset.split(',').map(item => item.trim().split(' ')[0]);
         // Prende l'URL con risoluzione più alta
         imageUrl = srcsetUrls[srcsetUrls.length - 1];
         return;
       } else if (src && src.includes('tripadvisor.com/media/photo')) {
         imageUrl = src;
-        console.log(imageUrl);
         return;
       }
     }
@@ -335,7 +325,6 @@ if (allPictures.length > 0) {
         const phoneMatch = text.match(/(\+39\s?)?(\d{2,4}\s?\d{6,8}|\d{3}\s?\d{3}\s?\d{4})/);
         if (phoneMatch && !phone) {
           phone = phoneMatch[0];
-          console.log("Extracted phone:", phone);
         }
       });
 
@@ -353,7 +342,6 @@ if (allPictures.length > 0) {
         imageUrl
       };
 
-      console.log("Final extracted data:", extracted);
 
       res.json({ extracted });
     } catch (error) {

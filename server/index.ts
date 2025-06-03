@@ -5,7 +5,6 @@ import { setupVite, serveStatic, log } from "./vite";
 // ✅ FORZA DEVELOPMENT MODE - IGNORA DIST
 console.log('🔧 === FORCING DEVELOPMENT MODE ===');
 process.env.NODE_ENV = 'development';
-console.log('🌍 NODE_ENV:', process.env.NODE_ENV);
 
 const app = express();
 
@@ -18,7 +17,6 @@ app.use(express.urlencoded({ extended: false }));
 
 // ✅ DEBUG: Log di tutte le richieste
 app.use((req, res, next) => {
-  console.log(`🔍 INCOMING: ${req.method} ${req.path}`);
   next();
 });
 

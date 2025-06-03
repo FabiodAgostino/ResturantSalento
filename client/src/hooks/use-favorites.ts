@@ -1,116 +1,103 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiRequest } from "@/lib/queryClient";
+import { useQueryClient } from "@tanstack/react-query";
 
-// Chiave per il localStorage
-const FAVORITES_STORAGE_KEY = "salento-favorites";
-
-// Interface per il ritorno del hook
 interface UseFavoritesReturn {
-  favorites: string[];
-  addFavorite: (restaurantId: string) => void;
-  removeFavorite: (restaurantId: string) => void;
-  toggleFavorite: (restaurantId: string) => void;
-  isFavorite: (restaurantId: string) => boolean;
+  favorites: number[];
+  addFavorite: (restaurantId: number) => Promise<void>;
+  removeFavorite: (restaurantId: number) => Promise<void>;
+  toggleFavorite: (restaurantId: number) => Promise<void>;
+  isFavorite: (restaurantId: number) => boolean;
   clearFavorites: () => void;
-  favoritesCount: number;
-  importFavorites: (favoriteIds: string[]) => void;
-  exportFavorites: () => string[];
+  isLoading: boolean;
+  error: string | null;
 }
 
 export const useFavorites = (): UseFavoritesReturn => {
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<number[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  // Carica i preferiti dal localStorage al mount
+  // Carica i favoriti dai dati esistenti dei ristoranti
   useEffect(() => {
-    const loadFavorites = () => {
+    const loadFavoritesFromRestaurants = () => {
       try {
-        const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            // Converte eventuali ID numerici in stringhe per compatibilità Firebase
-            const stringIds = parsed.map(id => String(id));
-            setFavorites(stringIds);
-            
-            // Se abbiamo convertito ID numerici, salva la versione aggiornata
-            if (parsed.some(id => typeof id === 'number')) {
-              localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(stringIds));
-            }
-          }
+        // Prende i dati dei ristoranti dalla cache di React Query
+        const restaurantsData = queryClient.getQueryData<any[]>(["/api/restaurants"]);
+        
+        if (restaurantsData) {
+          const favoriteIds = restaurantsData
+            .filter(restaurant => restaurant.favorite === true)
+            .map(restaurant => restaurant.id);
+          
+          setFavorites(favoriteIds);
         }
       } catch (error) {
-        console.error("Errore nel caricamento dei preferiti dal localStorage:", error);
-        // Rimuove dati corrotti
-        localStorage.removeItem(FAVORITES_STORAGE_KEY);
+        console.error("Errore nel caricamento dei favoriti:", error);
       }
     };
 
-    loadFavorites();
-  }, []);
+    loadFavoritesFromRestaurants();
+  }, [queryClient]);
 
-  // Salva i preferiti nel localStorage ogni volta che cambiano
-  useEffect(() => {
+  // Aggiorna il campo favorite del ristorante su Firestore
+  const updateRestaurantFavorite = useCallback(async (restaurantId: number, isFavorite: boolean) => {
     try {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+      setIsLoading(true);
+      setError(null);
+      // Chiamata API per aggiornare il ristorante
+      await apiRequest("PUT", `/api/restaurants/${restaurantId}`, {
+        favorite: isFavorite
+      });
+
+      // Aggiorna lo stato locale
+      setFavorites(prev => {
+        if (isFavorite) {
+          return prev.includes(restaurantId) ? prev : [...prev, restaurantId];
+        } else {
+          return prev.filter(id => id !== restaurantId);
+        }
+      });
+
+      // Invalida e ricarica la cache dei ristoranti
+      queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
+      
     } catch (error) {
-      console.error("Errore nel salvataggio dei preferiti nel localStorage:", error);
+      console.error("Errore nell'aggiornamento del favorito:", error);
+      setError("Errore nell'aggiornamento del favorito");
+      throw error;
+    } finally {
+      setIsLoading(false);
     }
+  }, [queryClient]);
+
+  const addFavorite = useCallback(async (restaurantId: number) => {
+    if (!favorites.includes(restaurantId)) {
+      await updateRestaurantFavorite(restaurantId, true);
+    }
+  }, [favorites, updateRestaurantFavorite]);
+
+  const removeFavorite = useCallback(async (restaurantId: number) => {
+    if (favorites.includes(restaurantId)) {
+      await updateRestaurantFavorite(restaurantId, false);
+    }
+  }, [favorites, updateRestaurantFavorite]);
+
+  const toggleFavorite = useCallback(async (restaurantId: number) => {
+    const isFavorite = favorites.includes(restaurantId);
+    await updateRestaurantFavorite(restaurantId, !isFavorite);
+  }, [favorites, updateRestaurantFavorite]);
+
+  const isFavorite = useCallback((restaurantId: number) => {
+    return favorites.includes(restaurantId);
   }, [favorites]);
 
-  // Aggiunge un ristorante ai preferiti
-  const addFavorite = useCallback((restaurantId: string) => {
-    const id = String(restaurantId); // Assicura che sia una stringa
-    setFavorites(prev => {
-      if (prev.includes(id)) {
-        return prev; // Già nei preferiti
-      }
-      return [...prev, id];
-    });
-  }, []);
-
-  // Rimuove un ristorante dai preferiti
-  const removeFavorite = useCallback((restaurantId: string) => {
-    const id = String(restaurantId); // Assicura che sia una stringa
-    setFavorites(prev => prev.filter(favId => favId !== id));
-  }, []);
-
-  // Alterna lo stato di preferito di un ristorante
-  const toggleFavorite = useCallback((restaurantId: string) => {
-    const id = String(restaurantId); // Assicura che sia una stringa
-    setFavorites(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(favId => favId !== id);
-      } else {
-        return [...prev, id];
-      }
-    });
-  }, []);
-
-  // Controlla se un ristorante è nei preferiti
-  const isFavorite = useCallback((restaurantId: string) => {
-    const id = String(restaurantId); // Assicura che sia una stringa
-    return favorites.includes(id);
-  }, [favorites]);
-
-  // Rimuove tutti i preferiti
   const clearFavorites = useCallback(() => {
-    setFavorites([]);
-    try {
-      localStorage.removeItem(FAVORITES_STORAGE_KEY);
-    } catch (error) {
-      console.error("Errore nella rimozione dei preferiti dal localStorage:", error);
-    }
+    // Per cancellare tutti i favoriti, dovremmo iterare su tutti i ristoranti
+    // È meglio implementare un endpoint specifico per questo
+    console.warn("clearFavorites non implementato per Firestore. Implementa un endpoint dedicato.");
   }, []);
-
-  // Importa una lista di preferiti (utile per sincronizzazione o migrazione)
-  const importFavorites = useCallback((favoriteIds: string[]) => {
-    const stringIds = favoriteIds.map(id => String(id)); // Converte tutti in stringhe
-    setFavorites(stringIds);
-  }, []);
-
-  // Esporta la lista dei preferiti
-  const exportFavorites = useCallback(() => {
-    return [...favorites];
-  }, [favorites]);
 
   return {
     favorites,
@@ -119,149 +106,7 @@ export const useFavorites = (): UseFavoritesReturn => {
     toggleFavorite,
     isFavorite,
     clearFavorites,
-    favoritesCount: favorites.length,
-    importFavorites,
-    exportFavorites
+    isLoading,
+    error
   };
-};
-
-// Hook aggiuntivo per statistiche sui preferiti
-export const useFavoritesStats = (restaurants: any[] = []) => {
-  const { favorites } = useFavorites();
-
-  const favoriteRestaurants = restaurants.filter(restaurant => 
-    favorites.includes(String(restaurant.id))
-  );
-
-  const stats = {
-    total: favoriteRestaurants.length,
-    byCuisine: favoriteRestaurants.reduce((acc, restaurant) => {
-      acc[restaurant.cuisine] = (acc[restaurant.cuisine] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>),
-    byPriceRange: favoriteRestaurants.reduce((acc, restaurant) => {
-      acc[restaurant.priceRange] = (acc[restaurant.priceRange] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>),
-    averageRating: favoriteRestaurants.length > 0 
-      ? favoriteRestaurants.reduce((sum, restaurant) => sum + parseFloat(restaurant.rating), 0) / favoriteRestaurants.length
-      : 0,
-    topCuisine: '',
-    topPriceRange: ''
-  };
-
-  // Trova la cucina più frequente con tipizzazione esplicita
-  const cuisineEntries: [string, number][] = Object.entries(stats.byCuisine);
-  if (cuisineEntries.length > 0) {
-    const topCuisineEntry = cuisineEntries.reduce((a: [string, number], b: [string, number]) => 
-      a[1] > b[1] ? a : b
-    );
-    stats.topCuisine = topCuisineEntry[0];
-  }
-
-  // Trova la fascia di prezzo più frequente con tipizzazione esplicita
-  const priceEntries: [string, number][] = Object.entries(stats.byPriceRange);
-  if (priceEntries.length > 0) {
-    const topPriceEntry = priceEntries.reduce((a: [string, number], b: [string, number]) => 
-      a[1] > b[1] ? a : b
-    );
-    stats.topPriceRange = topPriceEntry[0];
-  }
-
-  return {
-    favoriteRestaurants,
-    stats: {
-      ...stats,
-      averageRating: Math.round(stats.averageRating * 10) / 10 // Arrotonda a 1 decimale
-    }
-  };
-};
-
-// Hook per gestire la migrazione da ID numerici a stringhe
-export const useFavoritesMigration = () => {
-  const migrateFavorites = useCallback(() => {
-    try {
-      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          // Converte tutti gli ID in stringhe
-          const migratedIds = parsed.map(id => String(id));
-          localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(migratedIds));
-          return migratedIds;
-        }
-      }
-      return [];
-    } catch (error) {
-      console.error("Errore nella migrazione dei preferiti:", error);
-      localStorage.removeItem(FAVORITES_STORAGE_KEY);
-      return [];
-    }
-  }, []);
-
-  const needsMigration = useCallback(() => {
-    try {
-      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return Array.isArray(parsed) && parsed.some(id => typeof id === 'number');
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  }, []);
-
-  return {
-    migrateFavorites,
-    needsMigration
-  };
-};
-
-// Utilità per la gestione dei preferiti
-export const favoritesUtils = {
-  // Controlla se il localStorage è disponibile
-  isLocalStorageAvailable: (): boolean => {
-    try {
-      const test = '__localStorage_test__';
-      localStorage.setItem(test, test);
-      localStorage.removeItem(test);
-      return true;
-    } catch {
-      return false;
-    }
-  },
-
-  // Ottiene i preferiti direttamente dal localStorage (senza hook)
-  getFavoritesSync: (): string[] => {
-    try {
-      const stored = localStorage.getItem(FAVORITES_STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return Array.isArray(parsed) ? parsed.map(id => String(id)) : [];
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  },
-
-  // Salva i preferiti direttamente nel localStorage (senza hook)
-  saveFavoritesSync: (favorites: string[]): boolean => {
-    try {
-      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
-      return true;
-    } catch {
-      return false;
-    }
-  },
-
-  // Pulisce i dati corrotti
-  cleanupCorruptedData: (): void => {
-    try {
-      localStorage.removeItem(FAVORITES_STORAGE_KEY);
-    } catch {
-      // Silently fail
-    }
-  }
 };

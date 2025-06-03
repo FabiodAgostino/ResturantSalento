@@ -43,7 +43,6 @@ const AddRestaurant = () => {
       return response.json();
     },
     onSuccess: (data) => {
-      console.log("Extraction successful:", data);
       setExtractedData(data.extracted);
       setIsProcessing(false);
       toast({
@@ -64,12 +63,10 @@ const AddRestaurant = () => {
 
   const createRestaurantMutation = useMutation({
     mutationFn: async (restaurantData: any) => {
-      console.log("Sending restaurant data:", restaurantData);
       const response = await apiRequest("POST", "/api/restaurants", restaurantData);
       return response.json();
     },
     onSuccess: (data) => {
-      console.log("Restaurant created successfully:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
       setShowSuccess(true);
       resetForm();
@@ -80,7 +77,6 @@ const AddRestaurant = () => {
       });
     },
     onError: (error) => {
-      console.error("Restaurant creation failed:", error);
       toast({
         title: "Errore",
         description: "Impossibile aggiungere il ristorante. Riprova.",
@@ -186,7 +182,6 @@ const AddRestaurant = () => {
       imageUrl:finalData.imageUrl,
     };
 
-    console.log("Submitting restaurant data:", restaurantData);
     createRestaurantMutation.mutate(restaurantData);
   };
 

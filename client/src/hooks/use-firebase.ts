@@ -36,7 +36,7 @@ export const useRestaurants = () => {
     }
   };
 
-  const updateRestaurant = async (id: string, updates: Partial<Restaurant>) => {
+  const updateRestaurant = async (id: number, updates: Partial<Restaurant>) => {
     try {
       const updated = await RestaurantService.updateRestaurant(id, updates);
       if (updated) {
@@ -48,7 +48,7 @@ export const useRestaurants = () => {
     }
   };
 
-  const deleteRestaurant = async (id: string) => {
+  const deleteRestaurant = async (id: number) => {
     try {
       const success = await RestaurantService.deleteRestaurant(id);
       if (success) {
@@ -123,7 +123,7 @@ export const useBookings = () => {
     }
   };
 
-  const updateBooking = async (id: string, updates: Partial<Booking>) => {
+  const updateBooking = async (id: number, updates: Partial<Booking>) => {
     try {
       const updated = await RestaurantService.updateBooking(id, updates);
       if (updated) {
@@ -135,7 +135,7 @@ export const useBookings = () => {
     }
   };
 
-  const deleteBooking = async (id: string) => {
+  const deleteBooking = async (id: number) => {
     try {
       const success = await RestaurantService.deleteBooking(id);
       if (success) {
@@ -159,7 +159,7 @@ export const useBookings = () => {
 };
 
 // Hook per singolo ristorante
-export const useRestaurant = (id: string) => {
+export const useRestaurant = (id: number) => {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
