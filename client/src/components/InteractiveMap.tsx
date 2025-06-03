@@ -14,7 +14,7 @@ const InteractiveMap = ({ restaurants, onRestaurantClick, className = "" }: Inte
 
   useEffect(() => {
     // Dynamically load Leaflet if not already loaded
-    if (!window.L) {
+    if (!(window as any).L) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
@@ -46,9 +46,9 @@ const InteractiveMap = ({ restaurants, onRestaurantClick, className = "" }: Inte
     if (!mapRef.current || mapInstanceRef.current) return;
 
     // Center map on Salento region
-    mapInstanceRef.current = window.L.map(mapRef.current).setView([40.2, 18.2], 10);
+    mapInstanceRef.current = ((window as any).L).map(mapRef.current).setView([40.2, 18.2], 10);
 
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    ((window as any).L).tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(mapInstanceRef.current);
 
@@ -56,7 +56,7 @@ const InteractiveMap = ({ restaurants, onRestaurantClick, className = "" }: Inte
   };
 
   const updateMarkers = () => {
-    if (!mapInstanceRef.current || !window.L) return;
+    if (!mapInstanceRef.current || !((window as any).L)) return;
 
     // Clear existing markers
     markersRef.current.forEach(marker => {
@@ -70,7 +70,7 @@ const InteractiveMap = ({ restaurants, onRestaurantClick, className = "" }: Inte
         const lat = parseFloat(restaurant.latitude);
         const lng = parseFloat(restaurant.longitude);
         
-        const marker = window.L.marker([lat, lng]).addTo(mapInstanceRef.current);
+        const marker =((window as any).L).marker([lat, lng]).addTo(mapInstanceRef.current);
         
         const popupContent = `
           <div class="p-2">
@@ -85,7 +85,7 @@ const InteractiveMap = ({ restaurants, onRestaurantClick, className = "" }: Inte
               onclick="window.openRestaurantFromMap?.(${restaurant.id})"
               class="bg-orange-600 text-white px-3 py-1 rounded text-sm hover:bg-orange-700 transition-colors"
             >
-              View Details
+              Dettagli
             </button>
           </div>
         `;

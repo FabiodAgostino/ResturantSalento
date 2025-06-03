@@ -10,10 +10,10 @@ const Navigation = () => {
 
   const navItems = [
     { path: "/", label: "Home", icon: Home },
-    { path: "/recommended", label: "Recommended", icon: Star },
-    { path: "/calendar", label: "Calendar", icon: Calendar },
-    { path: "/favorites", label: "Favorites", icon: Heart },
-    { path: "/add-restaurant", label: "Add Restaurant", icon: Plus },
+    { path: "/recommended", label: "Raccomandati", icon: Star },
+    { path: "/calendar", label: "Calendario", icon: Calendar },
+    { path: "/favorites", label: "Preferiti", icon: Heart },
+    { path: "/add-restaurant", label: "Aggiungi Ristorante", icon: Plus },
   ];
 
   const isActive = (path: string) => {

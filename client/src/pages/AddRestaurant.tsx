@@ -183,7 +183,7 @@ const AddRestaurant = () => {
       address: finalData.address || undefined,
       latitude: finalData.latitude || "40.3515",
       longitude: finalData.longitude || "18.1750",
-      imageUrl: "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=300",
+      imageUrl:finalData.imageUrl,
     };
 
     console.log("Submitting restaurant data:", restaurantData);

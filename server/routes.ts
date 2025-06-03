@@ -293,6 +293,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log("Final location:", location);
 
+      // *** NUOVA SEZIONE: Estrazione dell'immagine principale ***
+    
+    let imageUrl = "";
+
+// Strategia 1: Cerca tutti gli elementi picture sulla pagina
+const allPictures = $('picture');
+if (allPictures.length > 0) {
+  // Analizza ogni picture per trovare quello con immagini TripAdvisor
+  allPictures.each((index, pictureEl) => {
+    if (imageUrl) return; // Se già trovato, skip
+    
+    const picture = $(pictureEl);
+    
+    // Cerca img dentro questo picture
+    const img = picture.find('img').first();
+    if (img.length > 0) {
+      const src = img.attr('src');
+      const srcset = img.attr('srcset');
+      // Controlla se contiene URL TripAdvisor validi
+      if (srcset && srcset.includes('tripadvisor.com/media/photo')) {
+        console.log("CE FOOOSCHIO")
+        const srcsetUrls = srcset.split(',').map(item => item.trim().split(' ')[0]);
+        // Prende l'URL con risoluzione più alta
+        imageUrl = srcsetUrls[srcsetUrls.length - 1];
+        return;
+      } else if (src && src.includes('tripadvisor.com/media/photo')) {
+        imageUrl = src;
+        console.log(imageUrl);
+        return;
+      }
+    }
+    
+  });
+}
+
       // Extract phone (se disponibile)
       let phone = "";
       $('.biGQs._P.pZUbB.KxBGd').each((i, elem) => {
@@ -314,7 +349,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         address,
         latitude,
         longitude,
-        phone: phone || undefined
+        phone: phone || undefined,
+        imageUrl
       };
 
       console.log("Final extracted data:", extracted);

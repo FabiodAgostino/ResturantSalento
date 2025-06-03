@@ -46,7 +46,7 @@ const Recommended = () => {
       let score = 0;
       
       // Punteggio preferenza cucina (35% peso)
-      if (restaurant.cuisine === preferredCuisine) {
+      if (restaurant.cuisines.find(x=> x==preferredCuisine)) {
         score += 35;
       }
       
@@ -60,7 +60,7 @@ const Recommended = () => {
       score += ratingScore;
       
       // Bonus per ristoranti nei preferiti (10% peso)
-      if (favorites.includes(restaurant.id)) {
+      if (favorites.includes(restaurant.id.toString())) {
         score += 10;
       }
       
@@ -308,7 +308,7 @@ const Recommended = () => {
                   <p className="mb-3 opacity-90">
                     Perfetta corrispondenza per gli amanti della cucina {preferredCuisine}
                     {topRecommendation.distance && ` • Solo ${formatDistance(topRecommendation.distance)} di distanza`}
-                    {favorites.includes(topRecommendation.id) && " • ❤️ Nei tuoi preferiti"}
+                    {favorites.includes(topRecommendation.id.toString()) && " • ❤️ Nei tuoi preferiti"}
                   </p>
                   <div className="flex items-center justify-center md:justify-start space-x-4 mb-4">
                     <div className="flex items-center">
@@ -350,7 +350,7 @@ const Recommended = () => {
                       {restaurant.distance && (
                         <div>{formatDistance(restaurant.distance)} di distanza</div>
                       )}
-                      {favorites.includes(restaurant.id) && (
+                      {favorites.includes(restaurant.id.toString()) && (
                         <div className="text-[hsl(var(--tomato))]">❤️ Preferito</div>
                       )}
                     </div>
@@ -365,10 +365,6 @@ const Recommended = () => {
                   <h4 className="text-xl font-display font-semibold text-[hsl(var(--dark-slate))] mb-2">
                     {restaurant.name}
                   </h4>
-                  
-                  <p className="text-[hsl(var(--dark-slate))]/70 mb-3 line-clamp-2">
-                    {restaurant.description || `Autentico ristorante di cucina ${restaurant.cuisine} nel cuore del Salento.`}
-                  </p>
                   
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
@@ -394,9 +390,9 @@ const Recommended = () => {
                   
                   {/* Motivo del consiglio */}
                   <div className="mt-3 text-xs text-[hsl(var(--dark-slate))]/50">
-                    {restaurant.cuisine === preferredCuisine && restaurant.priceRange === preferredPrice
+                    {restaurant.cuisines.find(x=> x===preferredCuisine) && restaurant.priceRange === preferredPrice
                       ? "✨ Corrisponde perfettamente alle tue preferenze"
-                      : restaurant.cuisine === preferredCuisine
+                      : restaurant.cuisines.find(x=> x===preferredCuisine)
                       ? "🍽️ Cucina preferita"
                       : restaurant.priceRange === preferredPrice
                       ? "💰 Fascia di prezzo preferita"

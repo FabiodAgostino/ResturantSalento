@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Clock, DollarSign, Star, Calendar, ArrowRight, Heart } from "lucide-react";
+import { MapPin, Phone, Clock, DollarSign, Star, Calendar, ArrowRight, Heart, Globe } from "lucide-react";
 import type { Restaurant } from "@/lib/types";
 import { useFavorites } from "@/hooks/use-favorites";
 
@@ -17,12 +17,22 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
 
   if (!restaurant) return null;
 
-  const isFavorite = favorites.includes(restaurant.id);
+  const isFavorite = favorites.includes(restaurant.id.toString());
 
   const handleFavoriteClick = () => {
-    toggleFavorite(restaurant.id);
+    toggleFavorite(restaurant.id.toString());
   };
-
+ const getCuisineColor = (cuisine: string) => {
+    const colors: Record<string, string> = {
+      pugliese: "bg-[hsl(var(--forest-green))]/10 text-[hsl(var(--forest-green))]",
+      italiana: "bg-[hsl(var(--olive-drab))]/10 text-[hsl(var(--olive-drab))]",
+      pesce: "bg-blue-100 text-blue-700",
+      barbecue: "bg-red-100 text-red-700",
+      steakhouse: "bg-gray-100 text-gray-700",
+      mediterranea: "bg-[hsl(var(--olive-drab))]/10 text-[hsl(var(--olive-drab))]",
+    };
+    return colors[cuisine] || "bg-gray-100 text-gray-700";
+  };
   const handleGetDirections = () => {
     if (restaurant.latitude && restaurant.longitude) {
       const url = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.latitude},${restaurant.longitude}`;
@@ -53,12 +63,6 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
     );
   };
 
-  const menuItems = [
-    { name: "Orecchiette alle Cime di Rapa", description: "Traditional pasta with turnip tops", price: "€14" },
-    { name: "Bombette Pugliesi", description: "Stuffed meat rolls, local specialty", price: "€18" },
-    { name: "Tiramisu della Casa", description: "House-made tiramisu", price: "€8" },
-  ];
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -86,7 +90,7 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
           {/* Restaurant Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <h4 className="text-lg font-semibold text-[hsl(var(--dark-slate))] mb-4">About</h4>
+              <h4 className="text-lg font-semibold text-[hsl(var(--dark-slate))] mb-4">Dettaglio</h4>
               <p className="text-[hsl(var(--dark-slate))]/70 mb-4">
                 {restaurant.description || "Experience authentic cuisine in a warm, family-friendly atmosphere. Our restaurant has been serving traditional recipes using only the finest local ingredients."}
               </p>
@@ -113,7 +117,7 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
                 
                 <div className="flex items-center">
                   <DollarSign className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
-                  <span className="text-[hsl(var(--dark-slate))]">{restaurant.priceRange} - Price Range</span>
+                  <span className="text-[hsl(var(--dark-slate))]">{restaurant.priceRange}</span>
                 </div>
 
                 <div className="flex items-center">
@@ -124,24 +128,22 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
             </div>
 
             <div>
-              <h4 className="text-lg font-semibold text-[hsl(var(--dark-slate))] mb-4">Menu Highlights</h4>
-              <div className="space-y-3">
-                {menuItems.map((item, index) => (
-                  <div key={index} className="flex justify-between items-center p-3 bg-[hsl(var(--warm-beige))] rounded-lg">
-                    <div>
-                      <h5 className="font-medium text-[hsl(var(--dark-slate))]">{item.name}</h5>
-                      <p className="text-sm text-[hsl(var(--dark-slate))]/70">{item.description}</p>
-                    </div>
-                    <span className="text-[hsl(var(--terracotta))] font-semibold">{item.price}</span>
-                  </div>
-                ))}
-              </div>
-
               <div className="mt-4">
-                <Badge className="bg-[hsl(var(--forest-green))]/10 text-[hsl(var(--forest-green))]">
-                  {restaurant.cuisine.charAt(0).toUpperCase() + restaurant.cuisine.slice(1)}
-                </Badge>
-              </div>
+  <div className="flex flex-wrap gap-2">
+    {restaurant.cuisines?.map((cuisine, index) => (
+      <Badge 
+        key={`${cuisine}-${index}`}
+        className={getCuisineColor(cuisine)}
+      >
+        {cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
+      </Badge>
+    )) || (
+      <Badge className="bg-gray-100 text-gray-600">
+        Cucina non specificata
+      </Badge>
+    )}
+  </div>
+</div>
             </div>
           </div>
 
@@ -152,7 +154,7 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
               onClick={() => onBookVisit?.(restaurant)}
             >
               <Calendar className="w-4 h-4 mr-2" />
-              Book a Visit
+              Prenota
             </Button>
             
             <Button
@@ -160,9 +162,9 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
               className="flex-1 border-[hsl(var(--terracotta))] text-[hsl(var(--terracotta))] hover:bg-[hsl(var(--terracotta))]/10 transition-colors font-medium"
               onClick={handleGetDirections}
             >
-              <ArrowRight className="w-4 h-4 mr-2" />
-              Get ArrowRight
-            </Button>
+              <Globe className="w-4 h-4 mr-2" />
+              Ottieni Indicazioni
+           </Button>
             
             <Button
               variant="outline"
@@ -172,7 +174,6 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
               onClick={handleFavoriteClick}
             >
               <Heart className={`w-4 h-4 mr-2 ${isFavorite ? "fill-current" : ""}`} />
-              {isFavorite ? "Remove from Favorites" : "Add to Favorites"}
             </Button>
           </div>
         </div>

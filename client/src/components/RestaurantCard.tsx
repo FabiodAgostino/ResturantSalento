@@ -6,6 +6,8 @@ import { Heart, MapPin, Star } from "lucide-react";
 import type { Restaurant } from "@/lib/types";
 import { useFavorites } from "@/hooks/use-favorites";
 import { getCuisineLabel } from "@/lib/types";
+import { getRestaurantPlaceholder, isValidImageUrl } from "@/utils/TripAdvisorImageExtractor";
+import { useState } from "react";
 
 interface RestaurantCardProps {
   restaurant: Restaurant;
@@ -14,12 +16,18 @@ interface RestaurantCardProps {
 
 const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
   const { favorites, toggleFavorite } = useFavorites();
-  const isFavorite = favorites.includes(restaurant.id);
+  const isFavorite = favorites.includes(restaurant.id.toString());
 
   const handleFavoriteClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleFavorite(restaurant.id);
+    toggleFavorite(restaurant.id.toString());
   };
+  const [imageUrl, setImageUrl] = useState(
+    restaurant.imageUrl && isValidImageUrl(restaurant.imageUrl) 
+      ? restaurant.imageUrl 
+      : getRestaurantPlaceholder(restaurant.cuisines[0])
+  );
+  const [imageError, setImageError] = useState(false);
 
   const getCuisineColor = (cuisine: string) => {
     const colors: Record<string, string> = {
@@ -65,7 +73,7 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
     <Card className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer">
       <div className="relative">
         <img
-          src={restaurant.imageUrl || "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=300"}
+          src={restaurant.imageUrl || undefined}
           alt={restaurant.name}
           className="w-full h-48 object-cover"
         />
@@ -128,7 +136,7 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
             className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))] transition-colors text-sm font-medium"
             onClick={() => onViewDetails(restaurant)}
           >
-            View Details
+            Dettagli
           </Button>
         </div>
       </CardContent>

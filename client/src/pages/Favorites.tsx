@@ -23,7 +23,7 @@ const Favorites = () => {
 
   // Filtra i ristoranti preferiti
   const favoriteRestaurants = restaurants.filter(restaurant => 
-    favorites.includes(restaurant.id)
+    favorites.includes(restaurant.id.toString())
   );
 
   const handleViewDetails = (restaurant: Restaurant) => {
@@ -184,19 +184,30 @@ const Favorites = () => {
                         Cucine preferite
                       </h4>
                       <div className="space-y-1">
-                        {Array.from(new Set(favoriteRestaurants.map(r => r.cuisine)))
-                          .slice(0, 3)
-                          .map(cuisine => {
-                            const count = favoriteRestaurants.filter(r => r.cuisine === cuisine).length;
-                            return (
+                       {(() => {
+                          const allCuisines = favoriteRestaurants.flatMap(restaurant => 
+                            restaurant.cuisines || []
+                          );
+                          
+                          // Conta le occorrenze di ogni cucina
+                          const cuisineCount = allCuisines.reduce((acc, cuisine) => {
+                            acc[cuisine] = (acc[cuisine] || 0) + 1;
+                            return acc;
+                          }, {} as Record<string, number>);
+                          
+                          // Ordina per count decrescente e prende le prime 3
+                          return Object.entries(cuisineCount)
+                            .sort(([, a], [, b]) => b - a)
+                            .slice(0, 3)
+                            .map(([cuisine, count]) => (
                               <div key={cuisine} className="flex justify-between text-sm">
                                 <span className="capitalize">{cuisine}</span>
                                 <span className="text-[hsl(var(--forest-green))] font-medium">
                                   {count}
                                 </span>
                               </div>
-                            );
-                          })}
+                            ));
+                        })()}
                       </div>
                     </div>
 

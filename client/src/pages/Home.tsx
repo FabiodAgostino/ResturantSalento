@@ -84,10 +84,10 @@ const Home = () => {
         {/* Hero Section */}
         <div className="text-center mb-8">
           <h2 className="text-4xl md:text-5xl font-display font-bold text-[hsl(var(--dark-slate))] mb-4">
-            Discover Salento's Culinary Treasures
+            Lu mare, lu sole, lu spinning
           </h2>
           <p className="text-lg text-[hsl(var(--dark-slate))]/70 max-w-2xl mx-auto">
-            Explore authentic restaurants in the heart of Puglia, from traditional trattorias to modern culinary experiences.
+            Esplora i ristoranti autentici nel cuore della Puglia, dalle trattorie tradizionali alle esperienze culinarie moderne.
           </p>
         </div>
 
