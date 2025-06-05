@@ -37,7 +37,7 @@ export interface User {
 
 // API request/response types
 export interface InsertRestaurant {
-  id: number;
+  id: number | undefined;
   name: string;
   tripadvisorUrl: string;
   cuisines: string[];
@@ -116,7 +116,7 @@ export interface BookingFormData {
 // API response types
 export interface ExtractedRestaurantData {
   name: string;
-  cuisines: string[];
+  cuisines: string[] | undefined;
   priceRange: string;
   rating: string;
   location: string;

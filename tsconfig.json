@@ -1,6 +1,18 @@
 {
-  "include": ["client/src/**/*", "shared/**/*", "server/**/*"],
-  "exclude": ["node_modules", "build", "dist", "**/*.test.ts"],
+  "include": [
+    "client/src/**/*", 
+    "shared/**/*", 
+    "client/services/**/*",
+    "client/**/*.ts",
+    "client/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules", 
+    "build", 
+    "dist", 
+    "**/*.test.ts",
+    "server"
+  ],
   "compilerOptions": {
     "incremental": true,
     "tsBuildInfoFile": "./node_modules/typescript/tsbuildinfo",
@@ -8,7 +20,7 @@
     "module": "ESNext",
     "strict": true,
     "lib": ["esnext", "dom", "dom.iterable"],
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "allowImportingTsExtensions": true,
@@ -18,6 +30,12 @@
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./shared/*"]
-    }
+    },
+    "target": "ES2020",
+    "useDefineForClassFields": true,
+    "allowJs": false,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
+    "noFallthroughCasesInSwitch": true
   }
 }

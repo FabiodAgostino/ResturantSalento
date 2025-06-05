@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,10 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar as CalendarIcon, Edit, Trash2, Plus } from "lucide-react";
 import CalendarView from "@/components/CalendarView";
 import { useToast } from "@/hooks/use-toast";
-import { useBookings, useRestaurants } from "@/hooks/use-firebase";
+import { useRestaurants, formatServiceError, logError } from "../../services/restaurant-service";
 import type { Booking, Restaurant } from "@/lib/types";
 
 const Calendar = () => {
+  // Stati per i dati
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+  const [restaurantsError, setRestaurantsError] = useState<string | null>(null);
+  
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(true);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
+
+  // Stati per l'UI
   const [isAddBookingOpen, setIsAddBookingOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [formData, setFormData] = useState({
@@ -26,18 +36,53 @@ const Calendar = () => {
 
   // Hook Firebase per prenotazioni e ristoranti
   const { 
-    bookings, 
-    loading: bookingsLoading, 
-    error: bookingsError, 
-    createBooking, 
-    updateBooking, 
-    deleteBooking 
-  } = useBookings();
-
-  const { 
-    restaurants, 
-    loading: restaurantsLoading 
+    getAllRestaurants,
+    getAllBookings,
+    createBooking,
+    updateBooking,
+    deleteBooking
   } = useRestaurants();
+
+  // Carica ristoranti e prenotazioni all'inizializzazione
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setRestaurantsLoading(true);
+        setRestaurantsError(null);
+        
+        const restaurantsData = await getAllRestaurants();
+        setRestaurants(restaurantsData);
+      } catch (error) {
+        const errorMessage = formatServiceError(error);
+        setRestaurantsError(errorMessage);
+        logError('Caricamento ristoranti in Calendar', error);
+      } finally {
+        setRestaurantsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    const loadBookings = async () => {
+      try {
+        setBookingsLoading(true);
+        setBookingsError(null);
+        
+        const bookingsData = await getAllBookings();
+        setBookings(bookingsData);
+      } catch (error) {
+        const errorMessage = formatServiceError(error);
+        setBookingsError(errorMessage);
+        logError('Caricamento prenotazioni in Calendar', error);
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+
+    loadBookings();
+  }, []);
 
   const resetForm = () => {
     setFormData({
@@ -47,6 +92,15 @@ const Calendar = () => {
       notes: "",
     });
     setSelectedBooking(null);
+  };
+
+  const reloadBookings = async () => {
+    try {
+      const bookingsData = await getAllBookings();
+      setBookings(bookingsData);
+    } catch (error) {
+      logError('Ricaricamento prenotazioni', error);
+    }
   };
 
   const handleCreateBooking = async (e: React.FormEvent) => {
@@ -71,15 +125,18 @@ const Calendar = () => {
 
       setIsAddBookingOpen(false);
       resetForm();
+      await reloadBookings(); // Ricarica le prenotazioni
+      
       toast({
         title: "Prenotazione creata",
         description: "La tua prenotazione al ristorante è stata creata con successo.",
       });
     } catch (error) {
-      console.error("Errore nella creazione della prenotazione:", error);
+      const errorMessage = formatServiceError(error);
+      logError('Creazione prenotazione', error);
       toast({
         title: "Errore",
-        description: "Errore nella creazione della prenotazione. Riprova.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -88,15 +145,18 @@ const Calendar = () => {
   const handleUpdateBooking = async (bookingId: number, updates: Partial<Booking>) => {
     try {
       await updateBooking(bookingId, updates);
+      await reloadBookings(); // Ricarica le prenotazioni
+      
       toast({
         title: "Prenotazione aggiornata",
         description: "La prenotazione è stata aggiornata con successo.",
       });
     } catch (error) {
-      console.error("Errore nell'aggiornamento della prenotazione:", error);
+      const errorMessage = formatServiceError(error);
+      logError('Aggiornamento prenotazione', error);
       toast({
         title: "Errore",
-        description: "Errore nell'aggiornamento della prenotazione. Riprova.",
+        description: errorMessage,
         variant: "destructive",
       });
     }
@@ -106,15 +166,18 @@ const Calendar = () => {
     if (confirm("Sei sicuro di voler eliminare questa prenotazione?")) {
       try {
         await deleteBooking(bookingId);
+        await reloadBookings(); // Ricarica le prenotazioni
+        
         toast({
           title: "Prenotazione eliminata",
           description: "La tua prenotazione è stata eliminata con successo.",
         });
       } catch (error) {
-        console.error("Errore nell'eliminazione della prenotazione:", error);
+        const errorMessage = formatServiceError(error);
+        logError('Eliminazione prenotazione', error);
         toast({
           title: "Errore",
-          description: "Errore nell'eliminazione della prenotazione. Riprova.",
+          description: errorMessage,
           variant: "destructive",
         });
       }
@@ -122,15 +185,15 @@ const Calendar = () => {
   };
 
   // Converti le prenotazioni in eventi del calendario
-const calendarEvents = bookings.map(booking => {
-  const restaurant = restaurants.find(r => r.id === booking.restaurantId);
-  return {
-    id: booking.id, // Ora è compatibile (number -> number)
-    title: `${restaurant?.name || 'Ristorante'} ${booking.time}`,
-    date: new Date(booking.date),
-    color: 'bg-[hsl(var(--terracotta))] text-white',
-  };
-});
+  const calendarEvents = bookings.map(booking => {
+    const restaurant = restaurants.find(r => r.id === booking.restaurantId);
+    return {
+      id: booking.id, // Ora è compatibile (number -> number)
+      title: `${restaurant?.name || 'Ristorante'} ${booking.time}`,
+      date: new Date(booking.date),
+      color: 'bg-[hsl(var(--terracotta))] text-white',
+    };
+  });
 
   // Filtra le prenotazioni future e ordinale per data
   const upcomingBookings = bookings
@@ -143,8 +206,22 @@ const calendarEvents = bookings.map(booking => {
     return (
       <main className="min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-display font-bold text-[hsl(var(--dark-slate))] mb-4">
+              Calendario Ristoranti
+            </h2>
+            <p className="text-lg text-[hsl(var(--dark-slate))]/70">
+              Pianifica le tue avventure culinarie
+            </p>
+          </div>
+          
           <div className="flex items-center justify-center min-h-[400px]">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(var(--terracotta))]"></div>
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(var(--terracotta))] mx-auto mb-4"></div>
+              <p className="text-[hsl(var(--dark-slate))]/70">
+                Caricamento calendario e prenotazioni...
+              </p>
+            </div>
           </div>
         </div>
       </main>
@@ -152,18 +229,33 @@ const calendarEvents = bookings.map(booking => {
   }
 
   // Gestione errori
-  if (bookingsError) {
+  if (bookingsError || restaurantsError) {
     return (
       <main className="min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-display font-bold text-[hsl(var(--dark-slate))] mb-4">
+              Calendario Ristoranti
+            </h2>
+          </div>
+          
           <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-red-600 mb-2">
-                  Errore nel caricamento
-                </h3>
-                <p className="text-gray-600">{bookingsError}</p>
+            <CardContent className="p-12 text-center">
+              <div className="text-red-500 mb-4">
+                <CalendarIcon className="w-16 h-16 mx-auto mb-4 opacity-50" />
               </div>
+              <h3 className="text-2xl font-display font-semibold text-[hsl(var(--dark-slate))] mb-2">
+                Errore nel caricamento
+              </h3>
+              <p className="text-[hsl(var(--dark-slate))]/70 mb-6">
+                {bookingsError || restaurantsError}
+              </p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
+              >
+                Riprova
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -263,7 +355,10 @@ const calendarEvents = bookings.map(booking => {
                       <Button 
                         type="button" 
                         variant="outline" 
-                        onClick={() => setIsAddBookingOpen(false)}
+                        onClick={() => {
+                          setIsAddBookingOpen(false);
+                          resetForm();
+                        }}
                       >
                         Annulla
                       </Button>

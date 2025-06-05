@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,9 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Plus, Eye, Check, Clock, Trash2, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import CuisineTagSelector from "@/components/CuisineTagSelector";
-import type { Restaurant } from "@/lib/types";
+import type { InsertRestaurant, Restaurant } from "@/lib/types";
+import { useRestaurants, formatServiceError, logError } from "../../services/restaurant-service";
 
 const AddRestaurant = () => {
   const [urls, setUrls] = useState([""]);
@@ -28,93 +27,43 @@ const AddRestaurant = () => {
   const [extractedData, setExtractedData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Stati per i ristoranti recenti
+  const [recentRestaurants, setRecentRestaurants] = useState<Restaurant[]>([]);
+  const [recentLoading, setRecentLoading] = useState(true);
+  const [recentError, setRecentError] = useState<string | null>(null);
+
+  const { extractRestaurantData, createRestaurant, getAllRestaurants } = useRestaurants();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const { data: recentRestaurants = [] } = useQuery<Restaurant[]>({
-    queryKey: ["/api/restaurants"],
-    select: (data) => data.slice(-5).reverse(), // Get last 5 restaurants added
-  });
+  // Carica i ristoranti recenti
+  useEffect(() => {
+    const loadRecentRestaurants = async () => {
+      try {
+        setRecentLoading(true);
+        setRecentError(null);
+        
+        const restaurants = await getAllRestaurants();
+        // Prende gli ultimi 5 ristoranti aggiunti (ordina per ID decrescente)
+        const recent = restaurants
+          .sort((a, b) => b.id - a.id)
+          .slice(0, 5);
+        
+        setRecentRestaurants(recent);
+      } catch (error) {
+        const errorMessage = formatServiceError(error);
+        setRecentError(errorMessage);
+        logError('Caricamento ristoranti recenti', error);
+      } finally {
+        setRecentLoading(false);
+      }
+    };
 
-  const extractMutation = useMutation({
-    mutationFn: async (url: string) => {
-      const response = await apiRequest("POST", "/api/restaurants/extract", { url });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setExtractedData(data.extracted);
-      setIsProcessing(false);
-      toast({
-        title: "Estrazione Completata",
-        description: "I dati del ristorante sono stati estratti con successo.",
-      });
-    },
-    onError: (error) => {
-      console.error("Extraction failed:", error);
-      setIsProcessing(false);
-      toast({
-        title: "Estrazione Fallita",
-        description: "Impossibile estrarre i dati del ristorante. Verifica l'URL di TripAdvisor.",
-        variant: "destructive",
-      });
-    },
-  });
+    loadRecentRestaurants();
+  }, [showSuccess]); // Ricarica quando viene aggiunto un ristorante
 
-  const createRestaurantMutation = useMutation({
-    mutationFn: async (restaurantData: any) => {
-      const response = await apiRequest("POST", "/api/restaurants", restaurantData);
-      return response.json();
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
-      setShowSuccess(true);
-      resetForm();
-      setTimeout(() => setShowSuccess(false), 5000);
-      toast({
-        title: "Ristorante Aggiunto",
-        description: "Il ristorante è stato aggiunto con successo ed è in attesa di approvazione.",
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: "Errore",
-        description: "Impossibile aggiungere il ristorante. Riprova.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const resetForm = () => {
-    setUrls([""]);
-    setManualData({
-      name: "",
-      cuisines: [],
-      priceRange: "",
-      location: "",
-      description: "",
-      phone: "",
-      address: "",
-      rating: "",
-    });
-    setExtractedData(null);
-  };
-
-  const addUrlField = () => {
-    setUrls([...urls, ""]);
-  };
-
-  const removeUrlField = (index: number) => {
-    setUrls(urls.filter((_, i) => i !== index));
-  };
-
-  const updateUrl = (index: number, value: string) => {
-    const newUrls = [...urls];
-    newUrls[index] = value;
-    setUrls(newUrls);
-  };
-
-  const handlePreview = () => {
+  const handleExtractData = async () => {
     const firstUrl = urls[0];
     if (!firstUrl || !firstUrl.toLowerCase().includes('tripadvisor')) {
       toast({
@@ -125,12 +74,31 @@ const AddRestaurant = () => {
       return;
     }
 
-    setIsProcessing(true);
-    setExtractedData(null);
-    extractMutation.mutate(firstUrl);
+    try {
+      setIsProcessing(true);
+      setExtractedData(null);
+      
+      const response = await extractRestaurantData(firstUrl);
+      
+      setExtractedData(response.extracted);
+      toast({
+        title: "Estrazione Completata",
+        description: "I dati del ristorante sono stati estratti con successo.",
+      });
+    } catch (error) {
+      const errorMessage = formatServiceError(error);
+      logError('Estrazione dati ristorante', error);
+      toast({
+        title: "Estrazione Fallita",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const firstUrl = urls[0];
@@ -167,7 +135,8 @@ const AddRestaurant = () => {
     }
 
     // Prepara i dati del ristorante
-    const restaurantData = {
+    const restaurantData: InsertRestaurant = {
+      id: undefined,
       tripadvisorUrl: firstUrl,
       name: finalData.name,
       cuisines: finalData.cuisines, // Array di cucine
@@ -179,10 +148,63 @@ const AddRestaurant = () => {
       address: finalData.address || undefined,
       latitude: finalData.latitude || "40.3515",
       longitude: finalData.longitude || "18.1750",
-      imageUrl:finalData.imageUrl,
+      imageUrl: finalData.imageUrl || undefined,
     };
 
-    createRestaurantMutation.mutate(restaurantData);
+    try {
+      setIsSubmitting(true);
+      console.log("Submitting restaurant data:", restaurantData);
+      
+      await createRestaurant(restaurantData);
+      
+      setShowSuccess(true);
+      resetForm();
+      setTimeout(() => setShowSuccess(false), 5000);
+      
+      toast({
+        title: "Ristorante Aggiunto",
+        description: "Il ristorante è stato aggiunto con successo ed è in attesa di approvazione.",
+      });
+    } catch (error) {
+      const errorMessage = formatServiceError(error);
+      logError('Creazione ristorante', error);
+      toast({
+        title: "Errore",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const resetForm = () => {
+    setUrls([""]);
+    setManualData({
+      name: "",
+      cuisines: [],
+      priceRange: "",
+      location: "",
+      description: "",
+      phone: "",
+      address: "",
+      rating: "",
+    });
+    setExtractedData(null);
+  };
+
+  const addUrlField = () => {
+    setUrls([...urls, ""]);
+  };
+
+  const removeUrlField = (index: number) => {
+    setUrls(urls.filter((_, i) => i !== index));
+  };
+
+  const updateUrl = (index: number, value: string) => {
+    const newUrls = [...urls];
+    newUrls[index] = value;
+    setUrls(newUrls);
   };
 
   const priceOptions = [
@@ -274,7 +296,7 @@ const AddRestaurant = () => {
               <div className="flex justify-center">
                 <Button
                   type="button"
-                  onClick={handlePreview}
+                  onClick={handleExtractData}
                   disabled={isProcessing || !urls[0]}
                   className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
                 >
@@ -506,11 +528,11 @@ const AddRestaurant = () => {
                 
                 <Button
                   type="submit"
-                  disabled={createRestaurantMutation.isPending || !urls[0]}
+                  disabled={isSubmitting || !urls[0]}
                   className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  {createRestaurantMutation.isPending ? "Aggiungendo..." : "Aggiungi Ristorante"}
+                  {isSubmitting ? "Aggiungendo..." : "Aggiungi Ristorante"}
                 </Button>
               </div>
             </form>
@@ -525,7 +547,16 @@ const AddRestaurant = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {recentRestaurants.length === 0 ? (
+            {recentLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[hsl(var(--terracotta))] mr-3"></div>
+                <span className="text-[hsl(var(--dark-slate))]/70">Caricamento...</span>
+              </div>
+            ) : recentError ? (
+              <p className="text-red-500 text-center py-8">
+                Errore nel caricamento: {recentError}
+              </p>
+            ) : recentRestaurants.length === 0 ? (
               <p className="text-[hsl(var(--dark-slate))]/70 text-center py-8">
                 Nessuna aggiunta recente. Sii il primo ad aggiungere un ristorante!
               </p>

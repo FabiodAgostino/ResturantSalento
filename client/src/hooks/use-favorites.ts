@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiRequest } from "@/lib/queryClient";
-import { useQueryClient } from "@tanstack/react-query";
+import { useRestaurants, formatServiceError, logError } from "../../services/restaurant-service";
 
 interface UseFavoritesReturn {
   favorites: number[];
@@ -8,7 +7,7 @@ interface UseFavoritesReturn {
   removeFavorite: (restaurantId: number) => Promise<void>;
   toggleFavorite: (restaurantId: number) => Promise<void>;
   isFavorite: (restaurantId: number) => boolean;
-  clearFavorites: () => void;
+  clearFavorites: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
 }
@@ -17,14 +16,18 @@ export const useFavorites = (): UseFavoritesReturn => {
   const [favorites, setFavorites] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
-  // Carica i favoriti dai dati esistenti dei ristoranti
+  // Hook Firebase per gestire i ristoranti
+  const { getAllRestaurants, updateRestaurant } = useRestaurants();
+
+  // Carica i favoriti dai dati dei ristoranti
   useEffect(() => {
-    const loadFavoritesFromRestaurants = () => {
+    const loadFavoritesFromRestaurants = async () => {
       try {
-        // Prende i dati dei ristoranti dalla cache di React Query
-        const restaurantsData = queryClient.getQueryData<any[]>(["/api/restaurants"]);
+        setIsLoading(true);
+        setError(null);
+        
+        const restaurantsData = await getAllRestaurants();
         
         if (restaurantsData) {
           const favoriteIds = restaurantsData
@@ -34,20 +37,25 @@ export const useFavorites = (): UseFavoritesReturn => {
           setFavorites(favoriteIds);
         }
       } catch (error) {
-        console.error("Errore nel caricamento dei favoriti:", error);
+        const errorMessage = formatServiceError(error);
+        setError(errorMessage);
+        logError("Caricamento favoriti", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     loadFavoritesFromRestaurants();
-  }, [queryClient]);
+  }, []); // ✅ Array vuoto - esegui solo al mount
 
   // Aggiorna il campo favorite del ristorante su Firestore
   const updateRestaurantFavorite = useCallback(async (restaurantId: number, isFavorite: boolean) => {
     try {
       setIsLoading(true);
       setError(null);
-      // Chiamata API per aggiornare il ristorante
-      await apiRequest("PUT", `/api/restaurants/${restaurantId}`, {
+      
+      // Chiamata al servizio Firebase per aggiornare il ristorante
+      await updateRestaurant(restaurantId, {
         favorite: isFavorite
       });
 
@@ -59,18 +67,16 @@ export const useFavorites = (): UseFavoritesReturn => {
           return prev.filter(id => id !== restaurantId);
         }
       });
-
-      // Invalida e ricarica la cache dei ristoranti
-      queryClient.invalidateQueries({ queryKey: ["/api/restaurants"] });
       
     } catch (error) {
-      console.error("Errore nell'aggiornamento del favorito:", error);
-      setError("Errore nell'aggiornamento del favorito");
+      const errorMessage = formatServiceError(error);
+      setError(errorMessage);
+      logError("Aggiornamento favorito", error);
       throw error;
     } finally {
       setIsLoading(false);
     }
-  }, [queryClient]);
+  }, [updateRestaurant]);
 
   const addFavorite = useCallback(async (restaurantId: number) => {
     if (!favorites.includes(restaurantId)) {
@@ -93,11 +99,34 @@ export const useFavorites = (): UseFavoritesReturn => {
     return favorites.includes(restaurantId);
   }, [favorites]);
 
-  const clearFavorites = useCallback(() => {
-    // Per cancellare tutti i favoriti, dovremmo iterare su tutti i ristoranti
-    // È meglio implementare un endpoint specifico per questo
-    console.warn("clearFavorites non implementato per Firestore. Implementa un endpoint dedicato.");
-  }, []);
+  const clearFavorites = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // Ottieni tutti i ristoranti favoriti
+      const restaurantsData = await getAllRestaurants();
+      const favoriteRestaurants = restaurantsData.filter(restaurant => restaurant.favorite === true);
+      
+      // Aggiorna tutti i ristoranti favoriti per rimuovere il flag favorite
+      const updatePromises = favoriteRestaurants.map(restaurant => 
+        updateRestaurant(restaurant.id, { favorite: false })
+      );
+      
+      await Promise.all(updatePromises);
+      
+      // Aggiorna lo stato locale
+      setFavorites([]);
+      
+    } catch (error) {
+      const errorMessage = formatServiceError(error);
+      setError(errorMessage);
+      logError("Cancellazione favoriti", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getAllRestaurants, updateRestaurant]);
 
   return {
     favorites,

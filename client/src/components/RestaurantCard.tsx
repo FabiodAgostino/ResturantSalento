@@ -1,4 +1,3 @@
-// client/src/components/RestaurantCard.tsx - Aggiornato per multiple cuisines
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +6,7 @@ import type { Restaurant } from "@/lib/types";
 import { useFavorites } from "@/hooks/use-favorites";
 import { getCuisineLabel } from "@/lib/types";
 import { getRestaurantPlaceholder, isValidImageUrl } from "@/utils/TripAdvisorImageExtractor";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { getCuisineColor } from "@/utils/UtilsMethods";
 
 interface RestaurantCardProps {
@@ -16,19 +15,27 @@ interface RestaurantCardProps {
 }
 
 const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
-  const { favorites, toggleFavorite } = useFavorites();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
-  const handleFavoriteClick = (e: React.MouseEvent) => {
+  // ✅ Usa useCallback per evitare re-creazione della funzione
+  const handleFavoriteClick = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleFavorite(restaurant.id);
-  };
+    try {
+      await toggleFavorite(restaurant.id);
+    } catch (error) {
+      console.error('Errore nel toggle favorito:', error);
+    }
+  }, [restaurant.id, toggleFavorite]);
+
+  // ✅ Calcola il valore favorite una sola volta
+  const isRestaurantFavorite = isFavorite(restaurant.id);
+
   const [imageUrl, setImageUrl] = useState(
     restaurant.imageUrl && isValidImageUrl(restaurant.imageUrl) 
       ? restaurant.imageUrl 
       : getRestaurantPlaceholder(restaurant.cuisines[0])
   );
   const [imageError, setImageError] = useState(false);
-
 
   const renderStars = (rating: string) => {
     const numRating = parseFloat(rating);
@@ -57,6 +64,7 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
   const cuisines = Array.isArray(restaurant.cuisines) 
     ? restaurant.cuisines 
     : [restaurant.cuisines];
+
   return (
     <Card className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 cursor-pointer">
       <div className="relative">
@@ -69,13 +77,13 @@ const RestaurantCard = ({ restaurant, onViewDetails }: RestaurantCardProps) => {
           variant="ghost"
           size="icon"
           className={`absolute top-2 right-2 ${
-            Boolean(restaurant.favorite)
+            isRestaurantFavorite
               ? "text-[hsl(var(--tomato))] hover:text-red-600" 
               : "text-gray-400 hover:text-[hsl(var(--tomato))]"
           } bg-white/80 hover:bg-white/90`}
           onClick={handleFavoriteClick}
         >
-          <Heart className={`w-5 h-5 ${Boolean(restaurant.favorite) ? "fill-current" : ""}`} />
+          <Heart className={`w-5 h-5 ${isRestaurantFavorite ? "fill-current" : ""}`} />
         </Button>
       </div>
       

@@ -1,6 +1,4 @@
-// client/src/pages/Home.tsx - Fix per filtri cuisines
-import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useMemo, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -9,10 +7,12 @@ import RestaurantCard from "@/components/RestaurantCard";
 import RestaurantModal from "@/components/RestaurantModal";
 import InteractiveMap from "@/components/InteractiveMap";
 import CuisineTagSelector from "@/components/CuisineTagSelector";
+import { useRestaurants, formatServiceError, logError } from "../../services/restaurant-service";
 import type { Restaurant } from "@/lib/types";
 import { normalizeCuisines } from "@/lib/types";
 
 const Home = () => {
+  // Stati per i filtri
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCuisines, setSelectedCuisines] = useState<string[]>([]);
   const [selectedPrice, setSelectedPrice] = useState("all");
@@ -21,9 +21,34 @@ const Home = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const { data: restaurants = [], isLoading } = useQuery<Restaurant[]>({
-    queryKey: ["/api/restaurants"],
-  });
+  // Stati per i dati
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+  const [restaurantsError, setRestaurantsError] = useState<string | null>(null);
+
+  // Hook Firebase per ottenere i ristoranti
+  const { getAllRestaurants } = useRestaurants();
+
+  // Carica i ristoranti all'inizializzazione
+  useEffect(() => {
+    const loadRestaurants = async () => {
+      try {
+        setRestaurantsLoading(true);
+        setRestaurantsError(null);
+        
+        const data = await getAllRestaurants();
+        setRestaurants(data);
+      } catch (error) {
+        const errorMessage = formatServiceError(error);
+        setRestaurantsError(errorMessage);
+        logError('Caricamento ristoranti in Home', error);
+      } finally {
+        setRestaurantsLoading(false);
+      }
+    };
+
+    loadRestaurants();
+  }, []); // ✅ Array vuoto - esegui solo al mount
 
   const filteredRestaurants = useMemo(() => {
     return restaurants.filter(restaurant => {
@@ -70,10 +95,43 @@ const Home = () => {
     { value: "3.0", label: "3.0+ Stars" },
   ];
 
-  if (isLoading) {
+  // Stato di caricamento
+  if (restaurantsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(var(--terracotta))]"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(var(--terracotta))] mx-auto mb-4"></div>
+          <p className="text-[hsl(var(--dark-slate))]/70">
+            Caricamento ristoranti...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Gestione errori
+  if (restaurantsError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="bg-white rounded-xl shadow-lg p-8">
+            <div className="text-red-500 mb-4">
+              <Search className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            </div>
+            <h3 className="text-2xl font-display font-semibold text-[hsl(var(--dark-slate))] mb-2">
+              Errore nel caricamento
+            </h3>
+            <p className="text-[hsl(var(--dark-slate))]/70 mb-6">
+              {restaurantsError}
+            </p>
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))]"
+            >
+              Riprova
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

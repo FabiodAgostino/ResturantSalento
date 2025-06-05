@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart } from "lucide-react";
@@ -6,7 +6,7 @@ import { Link } from "wouter";
 import RestaurantCard from "@/components/RestaurantCard";
 import RestaurantModal from "@/components/RestaurantModal";
 import { useFavorites } from "@/hooks/use-favorites";
-import { useRestaurants } from "@/hooks/use-firebase";
+import { useRestaurants, formatServiceError, logError } from "../../services/restaurant-service";
 import type { Restaurant } from "@/lib/types";
 
 const Favorites = () => {
@@ -14,12 +14,34 @@ const Favorites = () => {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Stato per i ristoranti
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+  const [restaurantsError, setRestaurantsError] = useState<string | null>(null);
+
   // Hook Firebase per ottenere tutti i ristoranti
-  const { 
-    restaurants, 
-    loading: restaurantsLoading, 
-    error: restaurantsError 
-  } = useRestaurants();
+  const { getAllRestaurants } = useRestaurants();
+
+  // Carica i ristoranti all'inizializzazione
+  useEffect(() => {
+    const loadRestaurants = async () => {
+      try {
+        setRestaurantsLoading(true);
+        setRestaurantsError(null);
+        
+        const data = await getAllRestaurants();
+        setRestaurants(data);
+      } catch (error) {
+        const errorMessage = formatServiceError(error);
+        setRestaurantsError(errorMessage);
+        logError('Caricamento ristoranti in Favorites', error);
+      } finally {
+        setRestaurantsLoading(false);
+      }
+    };
+
+    loadRestaurants();
+  }, []);
 
   // Filtra i ristoranti preferiti
   const favoriteRestaurants = restaurants.filter(restaurant => 
@@ -133,7 +155,7 @@ const Favorites = () => {
             {/* Contatore preferiti */}
             <div className="mb-6">
               <p className="text-[hsl(var(--dark-slate))]/70">
-                {favoriteRestaurants.length} ristorante{favoriteRestaurants.length !== 1 ? ' preferito' : ' preferiti'}
+                {favoriteRestaurants.length} ristorante{favoriteRestaurants.length !== 1 ? 's' : ''} preferit{favoriteRestaurants.length !== 1 ? 'i' : 'o'}
               </p>
             </div>
 

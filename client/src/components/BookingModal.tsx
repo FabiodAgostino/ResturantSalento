@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar, Clock, Users, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { Restaurant } from "@/lib/types";
-import { formatServiceError, RestaurantService } from "@/lib/restaurant-service";
+import type { InsertBooking, Restaurant } from "@/lib/types";
+import { useRestaurants, formatServiceError, logError } from "../../services/restaurant-service"
 
 var loading: Boolean;
 interface BookingModalProps {
@@ -31,6 +30,7 @@ const BookingModal = ({ restaurant, isOpen, onClose }: BookingModalProps) => {
       notes: "",
     });
   };
+  const { createBooking  } = useRestaurants();
 
    const handleSubmit = async (e: React.FormEvent) => {
     loading = true;
@@ -57,7 +57,7 @@ const BookingModal = ({ restaurant, isOpen, onClose }: BookingModalProps) => {
       });
       return;
     }
-   const bookingData = {
+   const bookingData: InsertBooking = {
       restaurantId: Number(restaurant.id), // Assicurati che sia un numero
       date: new Date(formData.date + "T00:00:00.000Z"), // Formato ISO completo
       time: formData.time.trim(), // Rimuovi spazi extra
@@ -65,7 +65,7 @@ const BookingModal = ({ restaurant, isOpen, onClose }: BookingModalProps) => {
     };
     try
     {
-      var booking = await RestaurantService.createBooking(bookingData);
+      var booking = await createBooking(bookingData);
       if(booking)
       {
         toast({

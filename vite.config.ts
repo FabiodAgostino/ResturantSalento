@@ -25,19 +25,20 @@ export default defineConfig({
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
-  // ✅ AGGIUNGI QUESTO PROXY
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true,
-        secure: false,
-      }
-    }
+    host: true,
+    // Rimuovi il proxy dato che ora usi Firebase direttamente
   },
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
+  // Configurazione per supportare Firebase nel browser
+  define: {
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    include: ['firebase/app', 'firebase/firestore']
+  }
 });

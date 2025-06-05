@@ -8,7 +8,6 @@ export function getCuisineColor(cuisine: string):string {
       mediterranea: "bg-[hsl(var(--terracotta))]/10 text-[hsl(var(--terracotta))]",
     };
     var color = colors[cuisine]
-    console.log(color)
     return color;
   };
   

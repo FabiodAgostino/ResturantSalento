@@ -1,15 +1,19 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MapPin, Target, Star, Clock, TrendingUp } from "lucide-react";
 import RestaurantModal from "@/components/RestaurantModal";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { useRestaurants } from "@/hooks/use-firebase";
+import { useRestaurants, formatServiceError, logError } from "../../services/restaurant-service";
 import { useFavorites } from "@/hooks/use-favorites";
 import type { Restaurant } from "@/lib/types";
 
 const Recommended = () => {
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [restaurantsLoading, setRestaurantsLoading] = useState(true);
+  const [restaurantsError, setRestaurantsError] = useState<string | null>(null);
+
   const [preferredCuisine, setPreferredCuisine] = useState("pugliese");
   const [preferredPrice, setPreferredPrice] = useState("€€");
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
@@ -19,11 +23,7 @@ const Recommended = () => {
   const { favorites } = useFavorites();
 
   // Hook Firebase per ottenere i ristoranti
-  const { 
-    restaurants, 
-    loading: restaurantsLoading, 
-    error: restaurantsError 
-  } = useRestaurants();
+  const { getAllRestaurants } = useRestaurants();
 
   // Calcola la distanza tra due punti usando la formula di Haversine
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -39,6 +39,26 @@ const Recommended = () => {
     return d;
   };
 
+  useEffect(() => {
+    const loadRestaurants = async () => {
+      try {
+        setRestaurantsLoading(true);
+        setRestaurantsError(null);
+        
+        const data = await getAllRestaurants();
+        setRestaurants(data);
+      } catch (error) {
+        const errorMessage = formatServiceError(error);
+        setRestaurantsError(errorMessage);
+        logError('Caricamento ristoranti in Recommended', error);
+      } finally {
+        setRestaurantsLoading(false);
+      }
+    };
+
+    loadRestaurants();
+  }, []); // ✅ Array vuoto - esegui solo al mount
+
   const getRecommendations = () => {
     if (!restaurants.length) return [];
 
@@ -46,7 +66,7 @@ const Recommended = () => {
       let score = 0;
       
       // Punteggio preferenza cucina (35% peso)
-      if (restaurant.cuisines.find(x=> x==preferredCuisine)) {
+      if (restaurant.cuisines.find(x => x === preferredCuisine)) {
         score += 35;
       }
       
@@ -60,7 +80,7 @@ const Recommended = () => {
       score += ratingScore;
       
       // Bonus per ristoranti nei preferiti (10% peso)
-      if (favorites.includes(restaurant.id.toString())) {
+      if (favorites.includes(restaurant.id)) {
         score += 10;
       }
       
@@ -308,7 +328,7 @@ const Recommended = () => {
                   <p className="mb-3 opacity-90">
                     Perfetta corrispondenza per gli amanti della cucina {preferredCuisine}
                     {topRecommendation.distance && ` • Solo ${formatDistance(topRecommendation.distance)} di distanza`}
-                    {favorites.includes(topRecommendation.id.toString()) && " • ❤️ Nei tuoi preferiti"}
+                    {favorites.includes(topRecommendation.id) && " • ❤️ Nei tuoi preferiti"}
                   </p>
                   <div className="flex items-center justify-center md:justify-start space-x-4 mb-4">
                     <div className="flex items-center">
@@ -350,7 +370,7 @@ const Recommended = () => {
                       {restaurant.distance && (
                         <div>{formatDistance(restaurant.distance)} di distanza</div>
                       )}
-                      {favorites.includes(restaurant.id.toString()) && (
+                      {favorites.includes(restaurant.id) && (
                         <div className="text-[hsl(var(--tomato))]">❤️ Preferito</div>
                       )}
                     </div>
@@ -390,9 +410,9 @@ const Recommended = () => {
                   
                   {/* Motivo del consiglio */}
                   <div className="mt-3 text-xs text-[hsl(var(--dark-slate))]/50">
-                    {restaurant.cuisines.find(x=> x===preferredCuisine) && restaurant.priceRange === preferredPrice
+                    {restaurant.cuisines.find(x => x === preferredCuisine) && restaurant.priceRange === preferredPrice
                       ? "✨ Corrisponde perfettamente alle tue preferenze"
-                      : restaurant.cuisines.find(x=> x===preferredCuisine)
+                      : restaurant.cuisines.find(x => x === preferredCuisine)
                       ? "🍽️ Cucina preferita"
                       : restaurant.priceRange === preferredPrice
                       ? "💰 Fascia di prezzo preferita"
