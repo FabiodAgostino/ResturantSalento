@@ -277,8 +277,6 @@ export class ScrapingService {
           signal: AbortSignal.timeout(this.config.timeout)
         });
 
-        console.log(`📡 Response status: ${response.status} ${response.statusText}`);
-
         if (!response.ok) {
           let errorMessage = `HTTP ${response.status}`;
           try {
@@ -298,7 +296,6 @@ export class ScrapingService {
 
         // Successo!
         this.markUrlSuccess(currentUrl);
-        console.log(`✅ Scraping completato con ${currentUrl}: ${apiResponse.data.name}`);
         return apiResponse.data;
 
       } catch (error) {
@@ -310,7 +307,6 @@ export class ScrapingService {
 
         // Se non è l'ultimo tentativo, aspetta un po' prima del prossimo
         if (attemptsCount < maxAttempts) {
-          console.log('⏳ Attendo prima del prossimo tentativo...');
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
@@ -348,7 +344,6 @@ export class ScrapingService {
     
     const working = details.filter(d => d.status === 'healthy').length;
     
-    console.log(`🔍 API Test: ${working}/${this.config.baseUrls.length} endpoints working`);
     
     return {
       working,
@@ -371,10 +366,8 @@ export class ScrapingService {
    * Log delle statistiche
    */
   private logStats(): void {
-    console.log('📊 Statistiche Endpoints:');
     this.urlStats.forEach((stats, url) => {
       const successRate = stats.totalRequests > 0 ? (stats.successCount / stats.totalRequests * 100).toFixed(1) : '0';
-      console.log(`  ${url}: ${stats.successCount}/${stats.totalRequests} (${successRate}%) - failures: ${stats.failures}`);
     });
   }
 
@@ -443,7 +436,6 @@ export class ScrapingService {
    * Reset manuale delle statistiche
    */
   resetStats(): void {
-    console.log('🔄 Reset di tutte le statistiche');
     this.urlStats.forEach(stats => {
       stats.failures = 0;
       stats.lastFailure = 0;

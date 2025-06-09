@@ -354,8 +354,6 @@ export class RestaurantService {
         Object.entries(restaurantData).filter(([_, value]) => value !== undefined)
       );
 
-      console.log('🔥 Data to save to Firestore:', JSON.stringify(cleanData, null, 2));
-
       await addDoc(this.restaurantsRef, cleanData);
       
       return { 
@@ -388,7 +386,6 @@ export class RestaurantService {
       const snapshot = await getDocs(q);
       
       if (snapshot.empty) {
-        console.log(`Nessun ristorante trovato con id: ${id}`);
         return undefined;
       }
       

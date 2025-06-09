@@ -192,7 +192,6 @@ const AddRestaurant = () => {
 
     try {
       setIsSubmitting(true);
-      console.log("Submitting restaurant data:", restaurantData);
       
       await createRestaurant(restaurantData);
       
