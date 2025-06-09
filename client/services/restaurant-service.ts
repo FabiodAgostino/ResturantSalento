@@ -178,7 +178,7 @@ export class RestaurantValidator {
   static validateBookingData(data: Partial<InsertBooking>): string[] {
     const errors: string[] = [];
     
-    if (!data.restaurantId || data.restaurantId <= 0) {
+    if (!data.restaurantId) {
       errors.push("ID ristorante non valido");
     }
     
@@ -227,7 +227,7 @@ export class RestaurantValidator {
    * Valida un ID
    */
   static validateId(id: number): boolean {
-    return Number.isInteger(id) && id > 0;
+    return Number.isInteger(id);
   }
 }
 
@@ -603,7 +603,6 @@ export class RestaurantService {
         'VALIDATION_ERROR'
       );
     }
-
     try {
       const bookingId = SnowflakeIdGenerator.generateId();
       const bookingData = {

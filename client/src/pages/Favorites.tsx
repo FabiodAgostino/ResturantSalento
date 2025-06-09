@@ -20,7 +20,7 @@ const Favorites = () => {
   const [restaurantsError, setRestaurantsError] = useState<string | null>(null);
 
   // Hook Firebase per ottenere tutti i ristoranti
-  const { getAllRestaurants } = useRestaurants();
+  const { getAllRestaurants, deleteRestaurant } = useRestaurants();
 
   // Carica i ristoranti all'inizializzazione
   useEffect(() => {
@@ -304,8 +304,21 @@ const Favorites = () => {
       <RestaurantModal
         restaurant={selectedRestaurant}
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedRestaurant(null);
+        }}
+        allowDelete={true} // ✅ Aggiungi questa prop
+        onDelete={async (restaurantId) => { // ✅ Aggiungi questo callback
+          try {
+            await deleteRestaurant(restaurantId);
+            setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
+          } catch (error) {
+            alert('Errore nell\'eliminazione del ristorante');
+          }
+        }}
       />
+
     </main>
   );
 };

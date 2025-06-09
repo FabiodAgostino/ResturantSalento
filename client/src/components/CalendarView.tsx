@@ -3,14 +3,19 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { CalendarEvent } from "@/lib/types";
 
-
 interface CalendarViewProps {
   events?: CalendarEvent[];
   onDateClick?: (date: Date) => void;
   onEventClick?: (event: CalendarEvent) => void;
+  onDayClick?: (date: Date) => void; // Prop per click su giorno
 }
 
-const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewProps) => {
+const CalendarView = ({ 
+  events = [], 
+  onDateClick, 
+  onEventClick, 
+  onDayClick // ✅ Aggiungi nel destructuring
+}: CalendarViewProps) => {
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const monthNames = [
@@ -42,7 +47,10 @@ const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewPr
 
   const handleDateClick = (day: number) => {
     const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+    
+    // ✅ Chiama entrambi i callback se presenti
     onDateClick?.(clickedDate);
+    onDayClick?.(clickedDate);
   };
 
   const renderCalendarDays = () => {
@@ -52,7 +60,14 @@ const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewPr
     for (let i = 0; i < firstDayOfWeek; i++) {
       const prevMonthDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), -(firstDayOfWeek - 1 - i));
       days.push(
-        <div key={`prev-${i}`} className="h-24 p-2 text-gray-400 cursor-pointer hover:bg-gray-50">
+        <div 
+          key={`prev-${i}`} 
+          className="h-24 p-2 text-gray-400 cursor-pointer hover:bg-gray-50"
+          onClick={() => {
+            // ✅ Anche i giorni del mese precedente possono essere clickabili
+            onDayClick?.(prevMonthDay);
+          }}
+        >
           <span>{prevMonthDay.getDate()}</span>
         </div>
       );
@@ -61,21 +76,26 @@ const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewPr
     // Current month days
     for (let day = 1; day <= daysInMonth; day++) {
       const dayEvents = getDayEvents(day);
+      const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
       
       days.push(
         <div
           key={day}
-          className="h-24 p-2 hover:bg-gray-50 cursor-pointer relative border-r border-b border-gray-200"
+          className={`h-24 p-2 hover:bg-gray-50 cursor-pointer relative border-r border-b border-gray-200 transition-colors ${
+            isToday ? 'bg-[hsl(var(--terracotta))]/10 font-semibold' : ''
+          }`}
           onClick={() => handleDateClick(day)}
         >
-          <span className="text-[hsl(var(--dark-slate))]">{day}</span>
+          <span className={`text-[hsl(var(--dark-slate))] ${isToday ? 'text-[hsl(var(--terracotta))]' : ''}`}>
+            {day}
+          </span>
           
           {dayEvents.length > 0 && (
             <div className="mt-1 space-y-1">
               {dayEvents.slice(0, 2).map((event, index) => (
                 <div
                   key={event.id}
-                  className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer ${event.color}`}
+                  className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer ${event.color} hover:opacity-80`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onEventClick?.(event);
@@ -85,12 +105,37 @@ const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewPr
                 </div>
               ))}
               {dayEvents.length > 2 && (
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-500 cursor-pointer hover:text-[hsl(var(--terracotta))]">
                   +{dayEvents.length - 2} more
                 </div>
               )}
             </div>
           )}
+          
+          {/* Indicatore che il giorno è clickabile */}
+          <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="w-2 h-2 rounded-full bg-[hsl(var(--terracotta))]/30"></div>
+          </div>
+        </div>
+      );
+    }
+
+    // Next month's leading days
+    const totalCells = Math.ceil((firstDayOfWeek + daysInMonth) / 7) * 7;
+    const remainingCells = totalCells - (firstDayOfWeek + daysInMonth);
+    
+    for (let i = 1; i <= remainingCells; i++) {
+      const nextMonthDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, i);
+      days.push(
+        <div 
+          key={`next-${i}`} 
+          className="h-24 p-2 text-gray-400 cursor-pointer hover:bg-gray-50"
+          onClick={() => {
+            // ✅ Anche i giorni del mese successivo possono essere clickabili
+            onDayClick?.(nextMonthDay);
+          }}
+        >
+          <span>{i}</span>
         </div>
       );
     }
@@ -99,7 +144,7 @@ const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewPr
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden group">
       {/* Calendar Header */}
       <div className="bg-[hsl(var(--terracotta))] text-white p-4">
         <div className="flex justify-between items-center">
@@ -107,7 +152,7 @@ const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewPr
             variant="ghost"
             size="icon"
             onClick={prevMonth}
-            className="text-white hover:bg-white/20"
+            className="text-white hover:bg-white/20 transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
           </Button>
@@ -120,7 +165,7 @@ const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewPr
             variant="ghost"
             size="icon"
             onClick={nextMonth}
-            className="text-white hover:bg-white/20"
+            className="text-white hover:bg-white/20 transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
           </Button>
@@ -139,6 +184,13 @@ const CalendarView = ({ events = [], onDateClick, onEventClick }: CalendarViewPr
       {/* Calendar Grid */}
       <div className="grid grid-cols-7">
         {renderCalendarDays()}
+      </div>
+      
+      {/* Footer informativo */}
+      <div className="bg-gray-50 px-4 py-2 text-center">
+        <p className="text-xs text-gray-600">
+          Clicca su un giorno per vedere i dettagli delle prenotazioni
+        </p>
       </div>
     </div>
   );

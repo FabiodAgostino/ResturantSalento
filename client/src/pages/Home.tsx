@@ -27,7 +27,7 @@ const Home = () => {
   const [restaurantsError, setRestaurantsError] = useState<string | null>(null);
 
   // Hook Firebase per ottenere i ristoranti
-  const { getAllRestaurants } = useRestaurants();
+  const { getAllRestaurants, deleteRestaurant } = useRestaurants();
 
   // Carica i ristoranti all'inizializzazione
   useEffect(() => {
@@ -270,18 +270,38 @@ const Home = () => {
           </div>
         )}
 
-        {/* Restaurant Grid */}
+       {/* Restaurant Grid */}
         {viewMode === "grid" && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredRestaurants.map(restaurant => (
+              // ✅ CORRETTO - RestaurantCard senza delete
               <RestaurantCard
-                key={restaurant.id}
+                key={restaurant.id} // ✅ Key obbligatoria
                 restaurant={restaurant}
-                onViewDetails={handleViewDetails}
+                onViewDetails={handleViewDetails} // ✅ Apre il modal per vedere dettagli E eliminare
               />
             ))}
           </div>
         )}
+
+        {/* Restaurant Modal - UN SOLO MODAL GLOBALE */}
+       <RestaurantModal
+        restaurant={selectedRestaurant}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedRestaurant(null);
+        }}
+        allowDelete={true} // ✅ Aggiungi questa prop
+        onDelete={async (restaurantId) => { // ✅ Aggiungi questo callback
+          try {
+            await deleteRestaurant(restaurantId);
+            setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
+          } catch (error) {
+            alert('Errore nell\'eliminazione del ristorante');
+          }
+        }}
+      />
 
         {/* Empty State */}
         {filteredRestaurants.length === 0 && (
@@ -334,12 +354,6 @@ const Home = () => {
         )}
       </div>
 
-      {/* Restaurant Modal */}
-      <RestaurantModal
-        restaurant={selectedRestaurant}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
     </main>
   );
 };

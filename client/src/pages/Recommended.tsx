@@ -23,7 +23,7 @@ const Recommended = () => {
   const { favorites } = useFavorites();
 
   // Hook Firebase per ottenere i ristoranti
-  const { getAllRestaurants } = useRestaurants();
+  const { getAllRestaurants, deleteRestaurant } = useRestaurants();
 
   // Calcola la distanza tra due punti usando la formula di Haversine
   const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
@@ -446,8 +446,21 @@ const Recommended = () => {
       <RestaurantModal
         restaurant={selectedRestaurant}
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedRestaurant(null);
+        }}
+        allowDelete={true} // ✅ Aggiungi questa prop
+        onDelete={async (restaurantId) => { // ✅ Aggiungi questo callback
+          try {
+            await deleteRestaurant(restaurantId);
+            setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
+          } catch (error) {
+            alert('Errore nell\'eliminazione del ristorante');
+          }
+        }}
       />
+
     </main>
   );
 };

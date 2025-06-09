@@ -57,7 +57,7 @@ const Navigation = () => {
             <div className="flex items-center cursor-pointer">
               <Utensils className="w-6 h-6 text-[hsl(var(--terracotta))] mr-2" />
               <h1 className="text-2xl font-display font-bold text-[hsl(var(--terracotta))]">
-                Salento Explorer
+                TripTaste
               </h1>
             </div>
           </Link>
@@ -87,7 +87,7 @@ const Navigation = () => {
                   <div className="flex items-center mb-6">
                     <Utensils className="w-6 h-6 text-[hsl(var(--terracotta))] mr-2" />
                     <h2 className="text-xl font-display font-bold text-[hsl(var(--terracotta))]">
-                      Salento Explorer
+                      TripTaste
                     </h2>
                   </div>
                   {navItems.map((item) => (

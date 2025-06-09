@@ -1,38 +1,78 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Clock, DollarSign, Star, Calendar, ArrowRight, Heart, Globe } from "lucide-react";
+import { MapPin, Phone, Clock, DollarSign, Star, Calendar, Heart, Globe, Trash2, Trash } from "lucide-react";
 import type { Restaurant } from "@/lib/types";
 import { useFavorites } from "@/hooks/use-favorites";
 import BookingModal from "@/components/BookingModal";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { getCuisineColor } from "@/utils/UtilsMethods";
+import { useRestaurants } from "../../services/restaurant-service";
+
 interface RestaurantModalProps {
   restaurant: Restaurant | null;
   isOpen: boolean;
   onClose: () => void;
   onBookVisit?: (restaurant: Restaurant) => void;
+  onDelete?: (restaurantId: number) => void; // Callback per gestire l'eliminazione
+  allowDelete?: boolean; // Flag per mostrare/nascondere il bottone elimina
 }
 
-const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: RestaurantModalProps) => {
+const RestaurantModal = ({ 
+  restaurant, 
+  isOpen, 
+  onClose, 
+  onBookVisit,
+  onDelete,
+  allowDelete = true 
+}: RestaurantModalProps) => {
   const { favorites, toggleFavorite } = useFavorites();
- const [isBookingModalOpen, setIsBookingModalOpen] = useState(false); 
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleBookVisit = () => {
-  setIsBookingModalOpen(true);
-};
- const handleBookingClose = () => {
+    setIsBookingModalOpen(true);
+  };
+
+  const handleBookingClose = () => {
     setIsBookingModalOpen(false);
     onClose(); // Chiude anche il RestaurantModal
   };
+
+  // ✅ Gestisce l'eliminazione del ristorante
+  const handleDeleteClick = useCallback(async () => {
+    if (!restaurant) return;
+    
+    // Conferma eliminazione
+    if (!window.confirm(`Sei sicuro di voler eliminare "${restaurant.name}"?`)) {
+      return;
+    }
+    setIsDeleting(true);
+    
+    try {
+      if (onDelete) {
+        onDelete(restaurant.id);
+      }
+      
+      // Chiude il modal dopo l'eliminazione
+      onClose();
+    } catch (error) {
+      console.error('Errore nell\'eliminazione del ristorante:', error);
+      alert('Errore nell\'eliminazione del ristorante. Riprova più tardi.');
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [restaurant, onDelete, onClose]);
+
   if (!restaurant) return null;
+  
   const isFavorite = favorites.includes(restaurant.id);
 
   const handleFavoriteClick = () => {
     toggleFavorite(restaurant.id);
   };
  
- const handleGetDirections = () => {
+  const handleGetDirections = () => {
     if (restaurant.latitude && restaurant.longitude) {
       const url = `https://www.google.com/maps/dir/?api=1&destination=${restaurant.latitude},${restaurant.longitude}`;
       window.open(url, '_blank');
@@ -63,133 +103,144 @@ const RestaurantModal = ({ restaurant, isOpen, onClose, onBookVisit }: Restauran
   };
 
   return (
-      <>
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex justify-between items-start">
+              <DialogTitle className="text-2xl font-display font-bold text-[hsl(var(--dark-slate))]">
+                {restaurant.name}
+              </DialogTitle>
+              {allowDelete && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-400 hover:text-red-600 hover:bg-red-50"
+                  onClick={handleDeleteClick}
+                  disabled={isDeleting}
+                  title="Elimina ristorante"
+                >
+                  <Trash2 className={`w-5 h-5 ${isDeleting ? 'animate-pulse' : ''}`} />
+                </Button>
+              )}
+            </div>
+          </DialogHeader>
 
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-display font-bold text-[hsl(var(--dark-slate))]">
-            {restaurant.name}
-          </DialogTitle>
-        </DialogHeader>
+          <div className="space-y-6">
+            {/* Restaurant Images */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <img
+                src={restaurant.imageUrl || "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400"}
+                alt={restaurant.name}
+                className="w-full h-64 object-cover rounded-lg"
+              />
+              <img
+                src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400"
+                alt="Chef preparing food"
+                className="w-full h-64 object-cover rounded-lg"
+              />
+            </div>
 
-        <div className="space-y-6">
-          {/* Restaurant Images */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <img
-              src={restaurant.imageUrl || "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400"}
-              alt={restaurant.name}
-              className="w-full h-64 object-cover rounded-lg"
-            />
-            <img
-              src="https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=600&h=400"
-              alt="Chef preparing food"
-              className="w-full h-64 object-cover rounded-lg"
-            />
-          </div>
-
-          {/* Restaurant Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h4 className="text-lg font-semibold text-[hsl(var(--dark-slate))] mb-4">Dettaglio</h4>
-              <p className="text-[hsl(var(--dark-slate))]/70 mb-4">
-                {restaurant.description || "Experience authentic cuisine in a warm, family-friendly atmosphere. Our restaurant has been serving traditional recipes using only the finest local ingredients."}
-              </p>
-              
-              <div className="space-y-3">
-                <div className="flex items-center">
-                  <MapPin className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
-                  <span className="text-[hsl(var(--dark-slate))]">{restaurant.address || restaurant.location}</span>
-                </div>
+            {/* Restaurant Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h4 className="text-lg font-semibold text-[hsl(var(--dark-slate))] mb-4">Dettaglio</h4>
+                <p className="text-[hsl(var(--dark-slate))]/70 mb-4">
+                  {restaurant.description || "Experience authentic cuisine in a warm, family-friendly atmosphere. Our restaurant has been serving traditional recipes using only the finest local ingredients."}
+                </p>
                 
-                {restaurant.phone && (
+                <div className="space-y-3">
                   <div className="flex items-center">
-                    <Phone className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
-                    <span className="text-[hsl(var(--dark-slate))]">{restaurant.phone}</span>
+                    <MapPin className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
+                    <span className="text-[hsl(var(--dark-slate))]">{restaurant.address || restaurant.location}</span>
                   </div>
-                )}
-                
-                {restaurant.hours && (
+                  
+                  {restaurant.phone && (
+                    <div className="flex items-center">
+                      <Phone className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
+                      <span className="text-[hsl(var(--dark-slate))]">{restaurant.phone}</span>
+                    </div>
+                  )}
+                  
+                  {restaurant.hours && (
+                    <div className="flex items-center">
+                      <Clock className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
+                      <span className="text-[hsl(var(--dark-slate))]">{restaurant.hours}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center">
-                    <Clock className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
-                    <span className="text-[hsl(var(--dark-slate))]">{restaurant.hours}</span>
+                    <DollarSign className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
+                    <span className="text-[hsl(var(--dark-slate))]">{restaurant.priceRange}</span>
                   </div>
-                )}
-                
-                <div className="flex items-center">
-                  <DollarSign className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
-                  <span className="text-[hsl(var(--dark-slate))]">{restaurant.priceRange}</span>
-                </div>
 
-                <div className="flex items-center">
-                  {renderStars(restaurant.rating)}
-                  <span className="ml-2 text-[hsl(var(--dark-slate))] font-medium">{restaurant.rating}</span>
+                  <div className="flex items-center">
+                    {renderStars(restaurant.rating)}
+                    <span className="ml-2 text-[hsl(var(--dark-slate))] font-medium">{restaurant.rating}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="mt-4">
+                  <div className="flex flex-wrap gap-2">
+                    {restaurant.cuisines?.map((cuisine, index) => (
+                      <Badge 
+                        key={`${cuisine}-${index}`}
+                        className={getCuisineColor(cuisine)}
+                      >
+                        {cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
+                      </Badge>
+                    )) || (
+                      <Badge className="bg-gray-100 text-gray-600">
+                        Cucina non specificata
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div>
-              <div className="mt-4">
-  <div className="flex flex-wrap gap-2">
-    {restaurant.cuisines?.map((cuisine, index) => (
-      <Badge 
-        key={`${cuisine}-${index}`}
-        className={getCuisineColor(cuisine)}
-      >
-        {cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
-      </Badge>
-    )) || (
-      <Badge className="bg-gray-100 text-gray-600">
-        Cucina non specificata
-      </Badge>
-    )}
-  </div>
-</div>
+            {/* Action Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t">
+              <Button
+                className="flex-1 bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))] transition-colors font-medium"
+                onClick={handleBookVisit} 
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Prenota
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="flex-1 border-[hsl(var(--terracotta))] text-[hsl(var(--terracotta))] hover:bg-[hsl(var(--terracotta))]/10 transition-colors font-medium"
+                onClick={handleGetDirections}
+              >
+                <Globe className="w-4 h-4 mr-2" />
+                Ottieni Indicazioni
+              </Button>
+              
+              <Button
+                variant="outline"
+                className={`border-gray-300 hover:bg-gray-50 transition-colors font-medium ${
+                  isFavorite ? "text-[hsl(var(--tomato))]" : "text-[hsl(var(--dark-slate))]"
+                }`}
+                onClick={handleFavoriteClick}
+              >
+                <Heart className={`w-4 h-4 mr-2 ${isFavorite ? "fill-current" : ""}`} />
+              </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t">
-            <Button
-              className="flex-1 bg-[hsl(var(--terracotta))] text-white hover:bg-[hsl(var(--saddle))] transition-colors font-medium"
-              onClick={handleBookVisit} 
-            >
-              <Calendar className="w-4 h-4 mr-2" />
-              Prenota
-            </Button>
-            
-            <Button
-              variant="outline"
-              className="flex-1 border-[hsl(var(--terracotta))] text-[hsl(var(--terracotta))] hover:bg-[hsl(var(--terracotta))]/10 transition-colors font-medium"
-              onClick={handleGetDirections}
-            >
-              <Globe className="w-4 h-4 mr-2" />
-              Ottieni Indicazioni
-           </Button>
-            
-            <Button
-              variant="outline"
-              className={`border-gray-300 hover:bg-gray-50 transition-colors font-medium ${
-                isFavorite ? "text-[hsl(var(--tomato))]" : "text-[hsl(var(--dark-slate))]"
-              }`}
-              onClick={handleFavoriteClick}
-            >
-              <Heart className={`w-4 h-4 mr-2 ${isFavorite ? "fill-current" : ""}`} />
-            </Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-
-    <BookingModal
-      restaurant={restaurant}
-      isOpen={isBookingModalOpen}
-      onClose={handleBookingClose} 
-    />
-  </>
+      <BookingModal
+        restaurant={restaurant}
+        isOpen={isBookingModalOpen}
+        onClose={handleBookingClose} 
+      />
+    </>
   );
- 
-
 };
 
 export default RestaurantModal;
