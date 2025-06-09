@@ -85,8 +85,17 @@ export class ScrapingService {
     if (isDevelopment) {
       return ['http://localhost:3000'];
     }
-
-    throw "Env non configurato";     
+     return  [
+      "https://trip-advisor-scraping-api.vercel.app",
+      "https://trip-advisor-craping-api-2-git-main-fabiodagostinos-projects.vercel.app",
+      "https://trip-advisor-craping-api-3.vercel.app",
+      "https://trip-advisor-craping-api-4.vercel.app",
+      "https://trip-advisor-craping-api-5.vercel.app",
+      "https://trip-advisor-craping-api-6.vercel.app",
+      "https://trip-advisor-craping-api-7.vercel.app",
+      "https://trip-advisor-craping-api-8.vercel.app",
+      "https://trip-advisor-craping-api-9.vercel.app"
+    ];
   }
 
   private initializeUrlStats(): void {
