@@ -27,7 +27,7 @@ export default defineConfig({
   },
   root: path.resolve(import.meta.dirname, "client"),
   // Modifica questo per avere percorsi diversi in sviluppo e produzione
-  base: process.env.NODE_ENV === 'production' ? '/TripTaste/' : '/',
+  base: '/TripTaste/',
   build: {
     outDir: path.resolve(import.meta.dirname, "docs"),
     emptyOutDir: true,
