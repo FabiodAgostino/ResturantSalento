@@ -68,7 +68,6 @@ export class ScrapingService {
     // Se è configurato manualmente con multiple URLs
     if (import.meta.env.VITE_SCRAPING_API_URLS) {
       const urls = import.meta.env.VITE_SCRAPING_API_URLS.split(',').map((url: string) => url.trim());
-      console.log('🔗 Using configured multiple URLs:', urls);
       return urls;
     }
 
@@ -113,14 +112,6 @@ export class ScrapingService {
     if (!this.config.apiKey) {
       console.error('❌ API Key mancante. Configura VITE_SCRAPING_API_KEY nel tuo .env');
     }
-    
-    console.log(`🔧 ScrapingService configurato:`, {
-      baseUrls: this.config.baseUrls,
-      totalEndpoints: this.config.baseUrls.length,
-      timeout: this.config.timeout,
-      hasApiKey: !!this.config.apiKey,
-      environment: import.meta.env.MODE
-    });
   }
 
   private getHeaders(): HeadersInit {
