@@ -10,32 +10,19 @@ import Favorites from "./pages/Favorites";
 import AddRestaurant from "./pages/AddRestaurant";
 import NotFound from "./pages/not-found";
 
-// Funzione per gestire il base path in produzione
-function useBasePath() {
-  const [location, setLocation] = useLocation();
-  
-  useEffect(() => {
-    // In produzione, dobbiamo gestire il prefisso /TripTaste/
-    if (import.meta.env.PROD && location.startsWith('/TripTaste')) {
-      const newPath = location.replace('/TripTaste', '');
-      setLocation(newPath || '/');
-    }
-  }, [location, setLocation]);
-  
-  return null;
-}
 
 function Router() {
-  // Aggiungi questo componente per gestire il basePath
-  useBasePath();
+  
+  // Ottieni l'URL base per le route
+  const basePath = import.meta.env.PROD ? '/TripTaste' : '';
   
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/recommended" component={Recommended} />
-      <Route path="/calendar" component={Calendar} />
-      <Route path="/favorites" component={Favorites} />
-      <Route path="/add-restaurant" component={AddRestaurant} />
+      <Route path={`${basePath}/`} component={Home} />
+      <Route path={`${basePath}/recommended`} component={Recommended} />
+      <Route path={`${basePath}/calendar`} component={Calendar} />
+      <Route path={`${basePath}/favorites`} component={Favorites} />
+      <Route path={`${basePath}/add-restaurant`} component={AddRestaurant} />
       <Route component={NotFound} />
     </Switch>
   );
