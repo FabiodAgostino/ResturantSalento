@@ -1,4 +1,4 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { 
   Utensils, 
   Home, 
@@ -33,11 +33,11 @@ interface NavLinkProps {
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [location] = useLocation();
   
   // Funzione per verificare se un link è attivo
   const isActive = (path: string): boolean => {
-    // In modalità hash, confronta con il hash senza #
-    return window.location.hash === `#${path}`;
+    return location === path;
   };
   
   // Array di elementi di navigazione

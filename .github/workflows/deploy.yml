@@ -74,47 +74,55 @@ jobs:
       
       - name: Create 404.html
         run: |
-          cat > docs/404.html << 'EOL'
-          <!DOCTYPE html>
-          <html lang="it">
-          <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Reindirizzamento...</title>
-              <script>
-                // Salva il percorso attuale nel sessionStorage
-                sessionStorage.setItem('redirectPath', window.location.pathname);
-                
-                // Reindirizza alla home page
-                window.location.href = '/TripTaste/';
-              </script>
-              <style>
-                body {
-                  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                  display: flex;
-                  justify-content: center;
-                  align-items: center;
-                  height: 100vh;
-                  margin: 0;
-                  background-color: #f5f5dc;
-                }
-                .container {
-                  text-align: center;
-                  padding: 2rem;
-                  border-radius: 8px;
-                  background-color: white;
-                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-                }
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                <h1>Reindirizzamento in corso...</h1>
-                <p>Attendi mentre vieni reindirizzato alla pagina principale.</p>
-              </div>
-          </body>
-          </html>
-          EOL
+            cat > docs/404.html << 'EOL'
+            <!DOCTYPE html>
+            <html lang="it">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Reindirizzamento - TripTaste</title>
+                <script>
+                    // Ottieni il percorso completo della richiesta
+                    const path = window.location.pathname;
+                    
+                    // Converti il percorso in formato hash
+                    if (path.startsWith('/TripTaste/')) {
+                    // Estrai il percorso relativo
+                    const relativePath = path.substring('/TripTaste/'.length) || '';
+                    // Reindirizza alla home con il hash
+                    window.location.replace('/TripTaste/#/' + relativePath);
+                    } else {
+                    // Se non inizia con /TripTaste/, reindirizza semplicemente alla home
+                    window.location.replace('/TripTaste/#/');
+                    }
+                </script>
+                <style>
+                    body {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100vh;
+                    margin: 0;
+                    background-color: #f5f5dc;
+                    }
+                    .container {
+                    text-align: center;
+                    padding: 2rem;
+                    border-radius: 8px;
+                    background-color: white;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Reindirizzamento in corso...</h1>
+                    <p>Attendi mentre vieni reindirizzato alla pagina principale.</p>
+                </div>
+            </body>
+            </html>
+            EOL
       
       - name: Check index.html in docs
         run: |

@@ -4,6 +4,30 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>TripTaste</title>
+    <!-- Script per gestire il refresh della pagina mantenendo il routing hash -->
+    <script>
+      // Se non c'è un hash nell'URL ma c'è un pathname (diverso da /TripTaste/), reindirizza
+      (function() {
+        const basePath = '/TripTaste';
+        const pathname = window.location.pathname;
+        
+        // Se siamo su un percorso all'interno del sito ma senza hash
+        if (pathname.startsWith(basePath) && pathname !== basePath && pathname !== basePath + '/') {
+          // Estrai il percorso relativo
+          const relativePath = pathname.substring(basePath.length);
+          // Reindirizza alla home con il hash corretto
+          window.location.replace(basePath + '/#' + relativePath);
+        }
+        // Se siamo alla root di TripTaste senza slash finale
+        else if (pathname === basePath) {
+          window.location.replace(basePath + '/');
+        }
+        // Se siamo alla root di TripTaste con slash finale ma senza hash
+        else if (pathname === basePath + '/' && !window.location.hash) {
+          window.location.replace(basePath + '/#/');
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
