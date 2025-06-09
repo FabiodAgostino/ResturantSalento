@@ -16,7 +16,31 @@ jobs:
         uses: actions/setup-node@v2
         with:
           node-version: '18'
+      
+      - name: Create .env file
+        run: |
+          cat > client/.env << EOF
+          # Storage Configuration
+          USE_FIRESTORE=true
+
+          # Firebase Client Config (per il frontend)
+          VITE_FIREBASE_API_KEY=${{ secrets.FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID=${{ secrets.FIREBASE_APP_ID }}
+
+          # TripAdvisorScrapingAPI
+          VITE_SCRAPING_API_KEY=${{ secrets.SCRAPING_API_KEY }}
+
+          # Firebase Admin Config (per il backend)
+          FIREBASE_PROJECT_ID=${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_PRIVATE_KEY="${{ secrets.FIREBASE_PRIVATE_KEY }}"
+          EOF
           
+          echo "Created .env file for build"
+      
       - name: Install dependencies
         run: npm ci
         
@@ -30,7 +54,20 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           VITE_SCRAPING_API_KEY: ${{ secrets.SCRAPING_API_KEY }}
-          VITE_SCRAPING_API_URLS: ${{ secrets.SCRAPING_API_URLS }}
+      
+      - name: Debug build output
+        run: |
+          echo "Contents of docs directory:"
+          ls -la docs
+          echo "----------------"
+          echo "Contents of docs/assets directory (if exists):"
+          if [ -d "docs/assets" ]; then
+            ls -la docs/assets
+          else
+            echo "docs/assets directory does not exist!"
+            mkdir -p docs/assets
+            echo "Created docs/assets directory"
+          fi
       
       - name: Create .nojekyll file
         run: touch docs/.nojekyll
@@ -51,16 +88,58 @@ jobs:
                 // Reindirizza alla home page
                 window.location.href = '/TripTaste/';
               </script>
+              <style>
+                body {
+                  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  height: 100vh;
+                  margin: 0;
+                  background-color: #f5f5dc;
+                }
+                .container {
+                  text-align: center;
+                  padding: 2rem;
+                  border-radius: 8px;
+                  background-color: white;
+                  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                }
+              </style>
           </head>
           <body>
-              <p>Reindirizzamento in corso...</p>
+              <div class="container">
+                <h1>Reindirizzamento in corso...</h1>
+                <p>Attendi mentre vieni reindirizzato alla pagina principale.</p>
+              </div>
           </body>
           </html>
           EOL
+      
+      - name: Check index.html in docs
+        run: |
+          echo "Checking index.html content:"
+          cat docs/index.html
+          
+          # Verifica se il file index.html ha riferimenti agli asset
+          if grep -q "assets/" docs/index.html; then
+            echo "index.html contains references to assets directory"
+          else
+            echo "WARNING: index.html does not contain references to assets directory!"
+          fi
       
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@4.1.4
         with:
           branch: gh-pages
           folder: docs
-          clean: true
+          clean: false  # Modificato in false per evitare di cancellare file esistenti
+          clean-exclude: |
+            .nojekyll
+            404.html
+            assets
+      
+      - name: Deployment status
+        run: |
+          echo "Deployment completed"
+          echo "Your site should be available at: https://fabiodagostino.github.io/TripTaste/"
