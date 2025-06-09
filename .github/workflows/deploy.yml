@@ -6,9 +6,13 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Aggiungi queste permissioni per consentire il push sulla branch gh-pages
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+      
       - name: Setup Node.js
         uses: actions/setup-node@v2
         with:
@@ -27,11 +31,16 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
           VITE_FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
           VITE_SCRAPING_API_KEY: ${{ secrets.SCRAPING_API_KEY }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY }}
+          VITE_SCRAPING_API_URLS: ${{ secrets.SCRAPING_API_URLS }}
+      
+      # Aggiungi questo passaggio per creare il file .nojekyll
+      - name: Create .nojekyll file
+        run: touch docs/.nojekyll
           
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@4.1.4
         with:
           branch: gh-pages
           folder: docs
+          clean: true  # Rimuove i file vecchi
+          token: ${{ secrets.GITHUB_TOKEN }}  # Usa il token di GitHub
