@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Plus, Eye, Check, Clock, Trash2, ExternalLink } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Plus, Eye, Check, Clock, Trash2, ExternalLink, ChevronDown, Star, Euro, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CuisineTagSelector from "@/components/CuisineTagSelector";
 import type { InsertRestaurant, Restaurant } from "@/lib/types";
@@ -23,11 +24,16 @@ const AddRestaurant = () => {
     phone: "",
     address: "",
     rating: "",
+    // ✅ Nuove valutazioni utente
+    locationUser: "",
+    qualitàPrezzoUser: "",
+    mediaPrezzo: "",
   });
   const [extractedData, setExtractedData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUserRatingsOpen, setIsUserRatingsOpen] = useState(false);
 
   // Stati per i ristoranti recenti
   const [recentRestaurants, setRecentRestaurants] = useState<Restaurant[]>([]);
@@ -98,6 +104,24 @@ const AddRestaurant = () => {
     }
   };
 
+  const validateUserRatings = () => {
+    const errors: string[] = [];
+    
+    if (manualData.locationUser && (parseFloat(manualData.locationUser) < 0 || parseFloat(manualData.locationUser) > 5)) {
+      errors.push("Il rating location deve essere tra 0 e 5");
+    }
+    
+    if (manualData.qualitàPrezzoUser && (parseFloat(manualData.qualitàPrezzoUser) < 0 || parseFloat(manualData.qualitàPrezzoUser) > 5)) {
+      errors.push("Il rating qualità/prezzo deve essere tra 0 e 5");
+    }
+    
+    if (manualData.mediaPrezzo && (parseFloat(manualData.mediaPrezzo) < 0 || parseFloat(manualData.mediaPrezzo) > 1000)) {
+      errors.push("Il prezzo medio deve essere tra 0 e 1000 euro");
+    }
+    
+    return errors;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -134,6 +158,17 @@ const AddRestaurant = () => {
       return;
     }
 
+    // ✅ Validazione valutazioni utente
+    const userRatingErrors = validateUserRatings();
+    if (userRatingErrors.length > 0) {
+      toast({
+        title: "Valutazioni Non Valide",
+        description: userRatingErrors.join(". "),
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Prepara i dati del ristorante
     const restaurantData: InsertRestaurant = {
       id: undefined,
@@ -149,6 +184,10 @@ const AddRestaurant = () => {
       latitude: finalData.latitude || "40.3515",
       longitude: finalData.longitude || "18.1750",
       imageUrl: finalData.imageUrl || undefined,
+      // ✅ Aggiungi valutazioni utente
+      locationUser: manualData.locationUser ? parseFloat(manualData.locationUser) : undefined,
+      qualitàPrezzoUser: manualData.qualitàPrezzoUser ? parseFloat(manualData.qualitàPrezzoUser) : undefined,
+      mediaPrezzo: manualData.mediaPrezzo ? parseFloat(manualData.mediaPrezzo) : undefined,
     };
 
     try {
@@ -189,8 +228,12 @@ const AddRestaurant = () => {
       phone: "",
       address: "",
       rating: "",
+      locationUser: "",
+      qualitàPrezzoUser: "",
+      mediaPrezzo: "",
     });
     setExtractedData(null);
+    setIsUserRatingsOpen(false);
   };
 
   const addUrlField = () => {
@@ -515,6 +558,109 @@ const AddRestaurant = () => {
                 </div>
               </div>
 
+              {/* ✅ Pannello Valutazioni Utente Espandibile */}
+              <div className="border-t pt-6">
+                <Collapsible open={isUserRatingsOpen} onOpenChange={setIsUserRatingsOpen}>
+                  <CollapsibleTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-between text-[hsl(var(--dark-slate))] hover:bg-[hsl(var(--terracotta))]/5"
+                    >
+                      <div className="flex items-center">
+                        <Star className="w-4 h-4 mr-2 text-[hsl(var(--terracotta))]" />
+                        <span className="text-lg font-display font-semibold">
+                          Valutazioni Utente (Opzionale)
+                        </span>
+                      </div>
+                      <ChevronDown className={`w-5 h-5 transition-transform ${isUserRatingsOpen ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  
+                  <CollapsibleContent className="mt-4 space-y-4 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-[hsl(var(--dark-slate))]/70 mb-4">
+                      Aggiungi le tue valutazioni personali per aiutare altri utenti nella scelta
+                    </p>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Rating Posizione */}
+                      <div>
+                        <Label htmlFor="location-rating" className="flex items-center">
+                          <MapPin className="w-4 h-4 mr-2 text-[hsl(var(--terracotta))]" />
+                          Rating Location (0-5)
+                        </Label>
+                        <Input
+                          id="location-rating"
+                          type="number"
+                          min="0"
+                          max="5"
+                          step="0.1"
+                          placeholder="4.2"
+                          value={manualData.locationUser}
+                          onChange={(e) => setManualData(prev => ({ ...prev, locationUser: e.target.value }))}
+                        />
+                        <p className="text-xs text-gray-600 mt-1">
+                          Valuta posizione, accessibilità, parcheggio
+                        </p>
+                      </div>
+
+                      {/* Rating Qualità/Prezzo */}
+                      <div>
+                        <Label htmlFor="quality-price-rating" className="flex items-center">
+                          <Star className="w-4 h-4 mr-2 text-[hsl(var(--terracotta))]" />
+                          Qualità/Prezzo (0-5)
+                        </Label>
+                        <Input
+                          id="quality-price-rating"
+                          type="number"
+                          min="0"
+                          max="5"
+                          step="0.1"
+                          placeholder="4.0"
+                          value={manualData.qualitàPrezzoUser}
+                          onChange={(e) => setManualData(prev => ({ ...prev, qualitàPrezzoUser: e.target.value }))}
+                        />
+                        <p className="text-xs text-gray-600 mt-1">
+                          Rapporto qualità vs prezzo pagato
+                        </p>
+                      </div>
+
+                      {/* Prezzo Medio */}
+                      <div>
+                        <Label htmlFor="average-price" className="flex items-center">
+                          <Euro className="w-4 h-4 mr-2 text-[hsl(var(--terracotta))]" />
+                          Prezzo Medio (€)
+                        </Label>
+                        <Input
+                          id="average-price"
+                          type="number"
+                          min="0"
+                          max="1000"
+                          step="0.50"
+                          placeholder="25.00"
+                          value={manualData.mediaPrezzo}
+                          onChange={(e) => setManualData(prev => ({ ...prev, mediaPrezzo: e.target.value }))}
+                        />
+                        <p className="text-xs text-gray-600 mt-1">
+                          Prezzo medio per persona
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Info Helper */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                      <div className="flex items-start">
+                        <Star className="w-5 h-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-blue-800">
+                          <strong>Suggerimento:</strong> Le tue valutazioni aiuteranno altri utenti a scegliere il ristorante più adatto alle loro esigenze. 
+                          Sii onesto e considera la tua esperienza complessiva.
+                        </div>
+                      </div>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
               {/* Action Buttons */}
               <div className="flex justify-end space-x-4 pt-6 border-t">
                 <Button
@@ -583,6 +729,12 @@ const AddRestaurant = () => {
                           </p>
                           <p className="text-[hsl(var(--dark-slate))]/60 text-sm">
                             {restaurant.location}
+                            {/* ✅ Mostra valutazioni utente se presenti */}
+                            {(restaurant.locationUser || restaurant.qualitàPrezzoUser || restaurant.mediaPrezzo) && (
+                              <span className="ml-2 text-[hsl(var(--terracotta))]">
+                                • Valutazioni utente aggiunte
+                              </span>
+                            )}
                           </p>
                         </div>
                       </div>
@@ -606,6 +758,13 @@ const AddRestaurant = () => {
                         </span>
                         <div className="text-xs text-[hsl(var(--dark-slate))]/50 mt-1">
                           Rating: {restaurant.rating}
+                          {/* ✅ Mostra valutazioni utente in forma compatta */}
+                          {restaurant.locationUser && (
+                            <span className="ml-2">• Pos: {restaurant.locationUser.toFixed(1)}</span>
+                          )}
+                          {restaurant.mediaPrezzo && (
+                            <span className="ml-2">• €{restaurant.mediaPrezzo.toFixed(2)}</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -631,10 +790,12 @@ const AddRestaurant = () => {
                   <li>• Incolla l'URL nel campo sopra e clicca "Estrai Dati"</li>
                   <li>• Controlla e modifica le informazioni se necessario</li>
                   <li>• Seleziona i tipi di cucina appropriati</li>
+                  <li>• <strong>Opzionale:</strong> Aggiungi le tue valutazioni personali</li>
                   <li>• Clicca "Aggiungi Ristorante" per salvare</li>
                 </ul>
                 <p className="text-[hsl(var(--dark-slate))]/60 text-xs mt-3">
                   Tutti i ristoranti aggiunti vengono revisionati prima di apparire nel database pubblico.
+                  Le valutazioni utente aiutano la community a fare scelte più informate.
                 </p>
               </div>
             </div>

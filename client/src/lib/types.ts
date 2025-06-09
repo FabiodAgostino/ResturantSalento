@@ -1,5 +1,6 @@
 // client/src/lib/types.ts - Types finali corretti
 // Frontend type definitions matching the backend schema
+// Interfaccia Restaurant aggiornata con valutazioni utente
 export interface Restaurant {
   id: number;
   name: string;
@@ -18,7 +19,60 @@ export interface Restaurant {
   favorite?: boolean;
   isApproved?: boolean;
   createdAt?: Date;
+  
+  // ✅ Nuove valutazioni utente
+  locationUser?: number; // Rating posizione (0-5)
+  qualitàPrezzoUser?: number; // Rating qualità/prezzo (0-5)
+  mediaPrezzo?: number; // Prezzo medio in euro
 }
+
+// Interfaccia InsertRestaurant aggiornata
+export interface InsertRestaurant {
+  id?: number;
+  name: string;
+  tripadvisorUrl: string;
+  cuisines: string[];
+  priceRange: string;
+  rating: string;
+  location: string;
+  latitude?: string;
+  longitude?: string;
+  description?: string;
+  phone?: string;
+  hours?: string;
+  address?: string;
+  imageUrl?: string;
+  isApproved?: boolean;
+  
+  // ✅ Nuove valutazioni utente
+  locationUser?: number;
+  qualitàPrezzoUser?: number;
+  mediaPrezzo?: number;
+}
+
+// Utility per validare i rating utente
+export const validateUserRating = (value: number | undefined): boolean => {
+  if (value === undefined) return true; // Optional fields
+  return value >= 0 && value <= 5;
+};
+
+// Utility per validare il prezzo medio
+export const validateAveragePrice = (value: number | undefined): boolean => {
+  if (value === undefined) return true; // Optional field
+  return value >= 0 && value <= 1000; // Max €1000 per pasto
+};
+
+// Utility per formattare i rating
+export const formatUserRating = (rating: number | undefined): string => {
+  if (!rating) return "Non valutato";
+  return `${rating.toFixed(1)}/5`;
+};
+
+// Utility per formattare il prezzo medio
+export const formatAveragePrice = (price: number | undefined): string => {
+  if (!price) return "Non specificato";
+  return `€${price.toFixed(2)}`;
+};
 
 export interface Booking {
   id: number;
@@ -33,25 +87,6 @@ export interface User {
   id: number;
   username: string;
   password: string;
-}
-
-// API request/response types
-export interface InsertRestaurant {
-  id: number | undefined;
-  name: string;
-  tripadvisorUrl: string;
-  cuisines: string[];
-  priceRange: string;
-  rating: string;
-  location: string;
-  latitude?: string;
-  longitude?: string;
-  description?: string;
-  phone?: string;
-  hours?: string;
-  address?: string;
-  imageUrl?: string;
-  favorite?: boolean;
 }
 
 export interface InsertBooking {

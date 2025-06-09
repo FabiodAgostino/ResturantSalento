@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Clock, DollarSign, Star, Calendar, Heart, Globe, Trash2, Trash } from "lucide-react";
+import { MapPin, Phone, Clock, DollarSign, Star, Calendar, Heart, Globe, Trash2, Euro, TrendingUp, Award } from "lucide-react";
 import type { Restaurant } from "@/lib/types";
 import { useFavorites } from "@/hooks/use-favorites";
 import BookingModal from "@/components/BookingModal";
@@ -102,15 +102,52 @@ const RestaurantModal = ({
     );
   };
 
+  // ✅ Render stelle per valutazioni utente
+  const renderUserStars = (rating: number | undefined) => {
+    if (!rating) return null;
+    
+    const fullStars = Math.floor(rating);
+    const hasHalfStar = rating % 1 >= 0.5;
+    
+    return (
+      <div className="flex text-[hsl(var(--terracotta))]">
+        {[...Array(5)].map((_, i) => (
+          <Star
+            key={i}
+            className={`w-4 h-4 ${
+              i < fullStars 
+                ? "fill-current" 
+                : i === fullStars && hasHalfStar 
+                ? "fill-current opacity-50" 
+                : "text-gray-300"
+            }`}
+          />
+        ))}
+      </div>
+    );
+  };
+
+  // ✅ Controlla se ci sono valutazioni utente
+  const hasUserRatings = restaurant.locationUser || restaurant.qualitàPrezzoUser || restaurant.mediaPrezzo;
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex justify-between items-start">
-              <DialogTitle className="text-2xl font-display font-bold text-[hsl(var(--dark-slate))]">
-                {restaurant.name}
-              </DialogTitle>
+              <div className="flex-1">
+                <DialogTitle className="text-2xl font-display font-bold text-[hsl(var(--dark-slate))] mb-2">
+                  {restaurant.name}
+                </DialogTitle>
+                {/* ✅ Badge valutazioni utente se presenti */}
+                {hasUserRatings && (
+                  <Badge className="bg-[hsl(var(--terracotta))]/10 text-[hsl(var(--terracotta))] border-[hsl(var(--terracotta))]/20">
+                    <Award className="w-3 h-3 mr-1" />
+                    Valutato dalla community
+                  </Badge>
+                )}
+              </div>
               {allowDelete && (
                 <Button
                   variant="ghost"
@@ -140,6 +177,80 @@ const RestaurantModal = ({
                 className="w-full h-64 object-cover rounded-lg"
               />
             </div>
+
+            {/* ✅ Sezione Valutazioni Utente */}
+            {hasUserRatings && (
+              <div className="bg-gradient-to-r from-[hsl(var(--terracotta))]/5 to-[hsl(var(--saddle))]/5 rounded-lg p-6 border border-[hsl(var(--terracotta))]/20">
+                <div className="flex items-center mb-4">
+                  <TrendingUp className="w-5 h-5 text-[hsl(var(--terracotta))] mr-2" />
+                  <h4 className="text-lg font-semibold text-[hsl(var(--dark-slate))]">
+                    Valutazioni della Community
+                  </h4>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Rating Posizione */}
+                  {restaurant.locationUser && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <MapPin className="w-5 h-5 text-[hsl(var(--terracotta))] mr-2" />
+                        <span className="font-medium text-[hsl(var(--dark-slate))]">Posizione</span>
+                      </div>
+                      <div className="flex justify-center mb-1">
+                        {renderUserStars(restaurant.locationUser)}
+                      </div>
+                      <div className="text-2xl font-bold text-[hsl(var(--terracotta))] mb-1">
+                        {restaurant.locationUser.toFixed(1)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Accessibilità, parcheggio, zona
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Rating Qualità/Prezzo */}
+                  {restaurant.qualitàPrezzoUser && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <Star className="w-5 h-5 text-[hsl(var(--terracotta))] mr-2" />
+                        <span className="font-medium text-[hsl(var(--dark-slate))]">Qualità/Prezzo</span>
+                      </div>
+                      <div className="flex justify-center mb-1">
+                        {renderUserStars(restaurant.qualitàPrezzoUser)}
+                      </div>
+                      <div className="text-2xl font-bold text-[hsl(var(--terracotta))] mb-1">
+                        {restaurant.qualitàPrezzoUser.toFixed(1)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Rapporto qualità vs prezzo
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Prezzo Medio */}
+                  {restaurant.mediaPrezzo && (
+                    <div className="text-center">
+                      <div className="flex items-center justify-center mb-2">
+                        <Euro className="w-5 h-5 text-[hsl(var(--terracotta))] mr-2" />
+                        <span className="font-medium text-[hsl(var(--dark-slate))]">Prezzo Medio</span>
+                      </div>
+                      <div className="text-2xl font-bold text-[hsl(var(--terracotta))] mb-1">
+                        €{restaurant.mediaPrezzo.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        Per persona (secondo la community)
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-gray-600 italic">
+                    Valutazioni basate sull'esperienza della community di utenti
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Restaurant Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -172,32 +283,85 @@ const RestaurantModal = ({
                   <div className="flex items-center">
                     <DollarSign className="w-5 h-5 text-[hsl(var(--terracotta))] mr-3" />
                     <span className="text-[hsl(var(--dark-slate))]">{restaurant.priceRange}</span>
+                    {/* ✅ Mostra prezzo medio accanto alla fascia di prezzo */}
+                    {restaurant.mediaPrezzo && (
+                      <span className="text-[hsl(var(--dark-slate))]/60 ml-2">
+                        (Media: €{restaurant.mediaPrezzo.toFixed(2)})
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center">
                     {renderStars(restaurant.rating)}
                     <span className="ml-2 text-[hsl(var(--dark-slate))] font-medium">{restaurant.rating}</span>
+                    <span className="text-[hsl(var(--dark-slate))]/50 ml-2">TripAdvisor</span>
                   </div>
                 </div>
               </div>
 
               <div>
-                <div className="mt-4">
-                  <div className="flex flex-wrap gap-2">
-                    {restaurant.cuisines?.map((cuisine, index) => (
-                      <Badge 
-                        key={`${cuisine}-${index}`}
-                        className={getCuisineColor(cuisine)}
-                      >
-                        {cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
-                      </Badge>
-                    )) || (
-                      <Badge className="bg-gray-100 text-gray-600">
-                        Cucina non specificata
-                      </Badge>
-                    )}
-                  </div>
+                <h4 className="text-lg font-semibold text-[hsl(var(--dark-slate))] mb-4">Cucine e Specialità</h4>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {restaurant.cuisines?.map((cuisine, index) => (
+                    <Badge 
+                      key={`${cuisine}-${index}`}
+                      className={getCuisineColor(cuisine)}
+                    >
+                      {cuisine.charAt(0).toUpperCase() + cuisine.slice(1)}
+                    </Badge>
+                  )) || (
+                    <Badge className="bg-gray-100 text-gray-600">
+                      Cucina non specificata
+                    </Badge>
+                  )}
                 </div>
+
+                {/* ✅ Sezione riassuntiva se ci sono valutazioni utente */}
+                {hasUserRatings && (
+                  <div className="bg-white border border-[hsl(var(--terracotta))]/20 rounded-lg p-4">
+                    <h5 className="font-medium text-[hsl(var(--dark-slate))] mb-3 flex items-center">
+                      <Award className="w-4 h-4 mr-2 text-[hsl(var(--terracotta))]" />
+                      Highlights Community
+                    </h5>
+                    <div className="space-y-2 text-sm">
+                      {restaurant.locationUser && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-[hsl(var(--dark-slate))]/70">Posizione</span>
+                          <div className="flex items-center">
+                            <span className="font-medium text-[hsl(var(--terracotta))] mr-1">
+                              {restaurant.locationUser.toFixed(1)}
+                            </span>
+                            <Star className="w-3 h-3 text-[hsl(var(--terracotta))]" />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {restaurant.qualitàPrezzoUser && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-[hsl(var(--dark-slate))]/70">Qualità/Prezzo</span>
+                          <div className="flex items-center">
+                            <span className="font-medium text-[hsl(var(--terracotta))] mr-1">
+                              {restaurant.qualitàPrezzoUser.toFixed(1)}
+                            </span>
+                            <Star className="w-3 h-3 text-[hsl(var(--terracotta))]" />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {restaurant.mediaPrezzo && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-[hsl(var(--dark-slate))]/70">Prezzo Tipico</span>
+                          <div className="flex items-center">
+                            <Euro className="w-3 h-3 text-[hsl(var(--terracotta))] mr-1" />
+                            <span className="font-medium text-[hsl(var(--terracotta))]">
+                              {restaurant.mediaPrezzo.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
