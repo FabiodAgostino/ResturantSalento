@@ -26,9 +26,10 @@ export default defineConfig({
     },
   },
   root: path.resolve(import.meta.dirname, "client"),
-  base: "/TripTaste/", // Nome del tuo repository su GitHub
+  // Modifica questo per avere percorsi diversi in sviluppo e produzione
+  base: process.env.NODE_ENV === 'production' ? '/TripTaste/' : '/',
   build: {
-    outDir: path.resolve(import.meta.dirname, "docs"), // Cambiato da dist/public a docs
+    outDir: path.resolve(import.meta.dirname, "docs"),
     emptyOutDir: true,
   },
   // Configurazione per supportare Firebase nel browser

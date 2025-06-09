@@ -43,72 +43,17 @@ jobs:
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>Sito momentaneamente non disponibile - TripTaste</title>
+              <title>Reindirizzamento...</title>
               <script>
-                  // Reindirizza alla home page dopo un ritardo
-                  setTimeout(function() {
-                      window.location.href = '/TripTaste/';
-                  }, 5000);
-                  // Per SPA: salva il percorso corrente
-                  sessionStorage.setItem('redirectPath', window.location.pathname);
+                // Salva il percorso attuale nel sessionStorage
+                sessionStorage.setItem('redirectPath', window.location.pathname);
+                
+                // Reindirizza alla home page
+                window.location.href = '/TripTaste/';
               </script>
-              <style>
-                  body {
-                      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                      background-color: #f5f5dc;
-                      display: flex;
-                      justify-content: center;
-                      align-items: center;
-                      height: 100vh;
-                      margin: 0;
-                  }
-                  .container {
-                      text-align: center;
-                      background-color: white;
-                      padding: 30px;
-                      border-radius: 10px;
-                      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-                      max-width: 500px;
-                  }
-                  h1 {
-                      color: #d35400;
-                  }
-                  p {
-                      margin: 20px 0;
-                      line-height: 1.5;
-                  }
-                  .button {
-                      background-color: #d35400;
-                      color: white;
-                      padding: 10px 20px;
-                      border: none;
-                      border-radius: 5px;
-                      text-decoration: none;
-                      display: inline-block;
-                      margin-top: 20px;
-                  }
-              </style>
           </head>
           <body>
-              <div class="container">
-                  <h1>Sito momentaneamente non disponibile</h1>
-                  <p>Ci scusiamo per l'inconveniente, ma il sito è attualmente in manutenzione. Stiamo lavorando per migliorare la tua esperienza.</p>
-                  <a href="/TripTaste/" class="button">Torna alla Home</a>
-                  <p id="countdown">Sarai reindirizzato automaticamente alla home page tra 5 secondi...</p>
-              </div>
-              <script>
-                  // Conto alla rovescia
-                  let seconds = 5;
-                  const countdownElement = document.getElementById('countdown');
-                  const interval = setInterval(() => {
-                      seconds--;
-                      if (seconds <= 0) {
-                          clearInterval(interval);
-                      } else {
-                          countdownElement.textContent = `Sarai reindirizzato automaticamente alla home page tra ${seconds} secondi...`;
-                      }
-                  }, 1000);
-              </script>
+              <p>Reindirizzamento in corso...</p>
           </body>
           </html>
           EOL
