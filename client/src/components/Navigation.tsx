@@ -1,33 +1,56 @@
-import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
+import { 
+  Utensils, 
+  Home, 
+  TrendingUp, 
+  Calendar, 
+  Heart, 
+  PlusCircle,
+  Menu,
+  LucideIcon
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Utensils, Home, Star, Calendar, Heart, Plus } from "lucide-react";
+import { useState } from "react";
+import { 
+  Sheet, 
+  SheetContent, 
+  SheetTrigger 
+} from "@/components/ui/sheet";
+
+// Definizione delle tipizzazioni
+interface NavItem {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+interface NavLinkProps {
+  path: string;
+  label: string;
+  icon: LucideIcon;
+  mobile?: boolean;
+}
 
 const Navigation = () => {
-  const [location] = useLocation();
   const [isOpen, setIsOpen] = useState(false);
-
-  const navItems = [
+  
+  // Funzione per verificare se un link è attivo
+  const isActive = (path: string): boolean => {
+    // In modalità hash, confronta con il hash senza #
+    return window.location.hash === `#${path}`;
+  };
+  
+  // Array di elementi di navigazione
+  const navItems: NavItem[] = [
     { path: "/", label: "Home", icon: Home },
-    { path: "/recommended", label: "Raccomandati", icon: Star },
+    { path: "/recommended", label: "Consigliati", icon: TrendingUp },
     { path: "/calendar", label: "Calendario", icon: Calendar },
     { path: "/favorites", label: "Preferiti", icon: Heart },
-    { path: "/add-restaurant", label: "Aggiungi Ristorante", icon: Plus },
+    { path: "/add-restaurant", label: "Aggiungi", icon: PlusCircle }
   ];
-
-  const isActive = (path: string) => {
-    if (path === "/" && location === "/") return true;
-    if (path !== "/" && location.startsWith(path)) return true;
-    return false;
-  };
-
-  const NavLink = ({ path, label, icon: Icon, mobile = false }: { 
-    path: string; 
-    label: string; 
-    icon: any; 
-    mobile?: boolean 
-  }) => {
+  
+  // Componente per i link di navigazione
+  const NavLink = ({ path, label, icon: Icon, mobile = false }: NavLinkProps) => {
     const active = isActive(path);
     
     return (
@@ -47,7 +70,7 @@ const Navigation = () => {
       </Link>
     );
   };
-
+  
   return (
     <nav className="bg-white shadow-lg sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -61,7 +84,7 @@ const Navigation = () => {
               </h1>
             </div>
           </Link>
-
+          
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-4">
             {navItems.map((item) => (
@@ -73,7 +96,7 @@ const Navigation = () => {
               />
             ))}
           </div>
-
+          
           {/* Mobile Navigation */}
           <div className="md:hidden">
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
