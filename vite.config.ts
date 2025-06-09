@@ -15,7 +15,7 @@ export default defineConfig({
   root: path.resolve(__dirname, "client"),
   base: "/TripPaste/", // Nome del tuo repository su GitHub
   build: {
-    outDir: path.resolve(__dirname, "dist"),
+    outDir: path.resolve(__dirname, "docs"),
     emptyOutDir: true,
   },
   // Configurazione per supportare Firebase nel browser
