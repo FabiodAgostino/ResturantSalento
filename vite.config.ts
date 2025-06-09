@@ -1,21 +1,34 @@
+// vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "path";
+import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 
 // vite.config.ts per GitHub Pages
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    runtimeErrorOverlay(),
+    ...(process.env.NODE_ENV !== "production" &&
+    process.env.REPL_ID !== undefined
+      ? [
+          await import("@replit/vite-plugin-cartographer").then((m) =>
+            m.cartographer(),
+          ),
+        ]
+      : []),
+  ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "client", "src"),
-      "@shared": path.resolve(__dirname, "shared"),
-      "@assets": path.resolve(__dirname, "attached_assets"),
+      "@": path.resolve(import.meta.dirname, "client", "src"),
+      "@shared": path.resolve(import.meta.dirname, "shared"),
+      "@assets": path.resolve(import.meta.dirname, "attached_assets"),
     },
   },
-  root: path.resolve(__dirname, "client"),
-  base: "/TripPaste/", // Nome del tuo repository su GitHub
+  root: path.resolve(import.meta.dirname, "client"),
+  base: "/TripTaste/", // Nome del tuo repository su GitHub
   build: {
-    outDir: path.resolve(__dirname, "docs"),
+    outDir: path.resolve(import.meta.dirname, "docs"), // Cambiato da dist/public a docs
     emptyOutDir: true,
   },
   // Configurazione per supportare Firebase nel browser
