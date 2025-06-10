@@ -58,7 +58,7 @@ const RestaurantModal = ({
       onClose();
     } catch (error) {
       console.error('Errore nell\'eliminazione del ristorante:', error);
-      alert('Errore nell\'eliminazione del ristorante. Riprova più tardi.');
+      
     } finally {
       setIsDeleting(false);
     }

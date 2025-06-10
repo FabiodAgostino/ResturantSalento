@@ -35,7 +35,6 @@ function initializeFirebase() {
   if (!getApps().length) {
     try {
       initializeApp(firebaseConfig);
-      console.log('🔥 Firebase Client initialized successfully');
     } catch (error) {
       throw new RestaurantServiceError(
         'Errore nell\'inizializzazione di Firebase',

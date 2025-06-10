@@ -67,10 +67,8 @@ export class SimpleBrowserNotificationService {
       const baseUrl = import.meta.env.BASE_URL || '/';
       const swPath = `${baseUrl}sw.js`.replace('//', '/'); // Evita doppie slash
       
-      console.log('📍 Registrando Service Worker da:', swPath);
       this.serviceWorkerRegistration = await navigator.serviceWorker.register(swPath);
       await navigator.serviceWorker.ready;
-      console.log('✅ Service Worker pronto');
     } catch (error) {
       console.warn('⚠️ Service Worker non registrato:', error);
     }
@@ -94,7 +92,6 @@ export class SimpleBrowserNotificationService {
 
     try {
       const permission = await Notification.requestPermission();
-      console.log('Permesso notifiche:', permission);
       return permission;
     } catch (error) {
       console.error('Errore richiesta permesso:', error);
@@ -131,7 +128,6 @@ export class SimpleBrowserNotificationService {
           // vibrate supportato solo in ServiceWorker context
         });
         
-        console.log('✅ Notifica Android via Service Worker');
         return true;
       }
 
@@ -156,7 +152,6 @@ export class SimpleBrowserNotificationService {
       };
 
       setTimeout(() => notification.close(), 8000);
-      console.log('✅ Notifica desktop mostrata');
       return true;
 
     } catch (error) {
@@ -173,7 +168,6 @@ export class SimpleBrowserNotificationService {
       this.stopNotificationListener();
     }
 
-    console.log('🎧 Avvio listener notifiche...');
     
     const restaurantsQuery = query(
       collection(this.db, 'restaurants'),
@@ -191,7 +185,6 @@ export class SimpleBrowserNotificationService {
       // Salta primo caricamento
       if (this.isFirstLoad) {
         this.isFirstLoad = false;
-        console.log('🏁 Primo caricamento completato');
         return;
       }
 
@@ -220,7 +213,6 @@ export class SimpleBrowserNotificationService {
           const isAfterLastSeen = createdAt > this.lastSeenTimestamp;
           
           if (isRecent || isAfterLastSeen) {
-            console.log('🔔 Nuovo ristorante:', restaurant.name);
             await this.notifyNewRestaurant(restaurant);
           }
         }
@@ -243,7 +235,7 @@ export class SimpleBrowserNotificationService {
     
     const success = await this.showBrowserNotification({
       title: '🍽️ Nuovo Ristorante Scoperto!',
-      body: `${restaurant.name} è stato aggiunto in ${restaurant.location}`,
+      body: `${restaurant.name} è stato aggiunto a TripTaste`,
       icon: '/icon-192.png',
       badge: '/badge-72.png',
       tag: uniqueTag,
@@ -255,7 +247,6 @@ export class SimpleBrowserNotificationService {
     });
 
     if (success) {
-      console.log(`✅ Notifica mostrata per: ${restaurant.name}`);
       this.logNotificationShown(restaurant);
     }
   }
@@ -289,7 +280,6 @@ export class SimpleBrowserNotificationService {
     
     this.isListening = false;
     localStorage.setItem('notificationListenerActive', 'false');
-    console.log('🛑 Listener fermato');
   }
 
   /**

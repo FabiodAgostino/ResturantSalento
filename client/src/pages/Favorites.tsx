@@ -314,7 +314,7 @@ const Favorites = () => {
             await deleteRestaurant(restaurantId);
             setRestaurants(prev => prev.filter(r => r.id !== restaurantId));
           } catch (error) {
-            alert('Errore nell\'eliminazione del ristorante');
+            
           }
         }}
       />

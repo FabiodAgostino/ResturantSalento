@@ -21,7 +21,6 @@ if (import.meta.env.DEV) {
     connectFirestoreEmulator(db, 'localhost', 8080);
     connectFunctionsEmulator(functions, 'localhost', 5001);
   } catch (error) {
-    console.log('Emulatori già connessi');
   }
 }
 

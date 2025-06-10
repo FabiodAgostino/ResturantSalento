@@ -73,7 +73,7 @@ export class ScrapingService {
 
     // Se è configurata una singola URL
     if (import.meta.env.VITE_SCRAPING_API_URL) {
-      console.log('🔗 Using single configured URL:', import.meta.env.VITE_SCRAPING_API_URL);
+      
       return [import.meta.env.VITE_SCRAPING_API_URL];
     }
 
@@ -145,7 +145,6 @@ export class ScrapingService {
     // Resetta failures vecchie (più di 5 minuti)
     this.urlStats.forEach((stats, url) => {
       if (stats.failures > 0 && now - stats.lastFailure > this.RESET_TIMEOUT) {
-        console.log(`🔄 Reset failures per ${url} (timeout scaduto)`);
         stats.failures = 0;
       }
     });
@@ -157,7 +156,6 @@ export class ScrapingService {
       
       const stats = this.urlStats.get(url);
       if (!stats || stats.failures < this.FAILURE_THRESHOLD) {
-        console.log(`🎯 Selected URL: ${url} (failures: ${stats?.failures || 0})`);
         return url;
       }
       
@@ -165,7 +163,6 @@ export class ScrapingService {
     }
 
     // Se tutti sono bloccati, resetta e usa il primo
-    console.log('⚠️ Tutti gli endpoint sembrano bloccati, reset generale');
     this.urlStats.forEach(stats => { stats.failures = 0; });
     return this.config.baseUrls[0];
   }
@@ -179,7 +176,6 @@ export class ScrapingService {
       stats.failures++;
       stats.lastFailure = Date.now();
       stats.totalRequests++;
-      console.log(`❌ ${url} failed (${stats.failures}/${this.FAILURE_THRESHOLD}): ${error}`);
     }
   }
 
@@ -192,7 +188,6 @@ export class ScrapingService {
       stats.failures = 0; // Reset failures on success
       stats.successCount++;
       stats.totalRequests++;
-      console.log(`✅ ${url} success (total: ${stats.successCount})`);
     }
   }
 
@@ -201,8 +196,6 @@ export class ScrapingService {
    */
   async healthCheck(): Promise<HealthCheckResponse[]> {
     const results: HealthCheckResponse[] = [];
-    
-    console.log('🏥 Checking health of all endpoints...');
     
     for (const baseUrl of this.config.baseUrls) {
       try {
@@ -217,7 +210,6 @@ export class ScrapingService {
         }
 
         const healthData = await response.json();
-        console.log(`✅ ${baseUrl}: ${healthData.status}`);
         results.push(healthData);
       } catch (error) {
         console.error(`❌ ${baseUrl}: ${error}`);
@@ -251,9 +243,6 @@ export class ScrapingService {
       throw new Error('API Key mancante. Configurare VITE_SCRAPING_API_KEY');
     }
 
-    console.log(`🔍 Iniziando scraping di: ${request.url}`);
-    console.log(`🌐 Endpoints disponibili: ${this.config.baseUrls.length}`);
-
     let lastError: Error | null = null;
     let attemptsCount = 0;
     const maxAttempts = this.config.baseUrls.length;
@@ -268,7 +257,6 @@ export class ScrapingService {
 
       try {
         attemptsCount++;
-        console.log(`🔄 Tentativo ${attemptsCount}/${maxAttempts} con: ${currentUrl}`);
 
         const response = await fetch(`${currentUrl}/api/scrape`, {
           method: 'POST',
@@ -452,7 +440,6 @@ export class ScrapingService {
     if (newConfig.baseUrls) {
       this.initializeUrlStats();
     }
-    console.log('🔧 Configurazione aggiornata:', this.config);
   }
 }
 

@@ -40,7 +40,6 @@ const Info = () => {
     const initialStatus = notificationService.getPermissionStatus();
     setPermissionStatus(initialStatus);
     setIsListening(initialStatus.isListening);
-    console.log('🔄 Stato UI aggiornato:', initialStatus);
   }, 1500); // Delay per permettere auto-ripristino
   
   // ... resto del useEffect rimane uguale
@@ -52,9 +51,9 @@ const Info = () => {
     setPermissionStatus(notificationService.getPermissionStatus());
     
     if (permission === 'granted') {
-      alert('✅ Permessi concessi! Ora riceverai notifiche per i nuovi ristoranti.');
+      
     } else {
-      alert('❌ Permessi negati. Non riceverai notifiche browser.');
+      
     }
   };
 
@@ -65,7 +64,7 @@ const Info = () => {
     // Salva il cleanup
     (window as any).notificationCleanup = unsubscribe;
     
-    alert('🎧 Notifiche attivate! Riceverai un avviso quando vengono aggiunti nuovi ristoranti.');
+    
   };
 
   const handleStopListening = () => {
@@ -76,27 +75,27 @@ const Info = () => {
       (window as any).notificationCleanup = undefined;
     }
     
-    alert('🛑 Notifiche disattivate.');
+    
   };
 
   const handleTestNotification = async () => {
     if (permissionStatus.permission !== 'granted') {
-      alert('⚠️ Prima devi concedere i permessi per le notifiche!');
+      
       return;
     }
 
     const success = await notificationService.testNotification();
     
     if (success) {
-      alert('✅ Test completato! Dovresti aver visto una notifica.');
+      
     } else {
-      alert('❌ Test fallito. Controlla i permessi del browser.');
+      
     }
   };
 
   const handleMarkAsSeen = () => {
     notificationService.markAsSeen();
-    alert('✅ Tutte le notifiche marcate come viste.');
+    
   };
 
   const getStatusColor = () => {

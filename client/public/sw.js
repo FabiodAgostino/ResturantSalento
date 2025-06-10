@@ -1,16 +1,16 @@
 self.addEventListener('activate', (event) => {
-  console.log('🔧 Service Worker attivato');
+  
   self.clients.claim();
 });
 
 // Listener per messaggi dal main thread
 self.addEventListener('message', (event) => {
-  console.log('📨 SW ricevuto messaggio:', event.data);
+  
   
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     const { title, options } = event.data;
     
-    console.log('🔔 SW mostra notifica:', title);
+    
     
     // Mostra notifica tramite Service Worker
     self.registration.showNotification(title, {
@@ -28,7 +28,7 @@ self.addEventListener('message', (event) => {
 
 // Click handler per notifiche
 self.addEventListener('notificationclick', (event) => {
-  console.log('👆 Notifica cliccata:', event.notification);
+  
   
   event.notification.close();
   
