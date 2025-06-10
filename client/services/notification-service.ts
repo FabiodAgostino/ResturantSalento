@@ -1,6 +1,7 @@
 import { onSnapshot, query, orderBy, limit, Timestamp, getFirestore, Firestore } from 'firebase/firestore';
 import { collection } from 'firebase/firestore';
 import type { Restaurant, InsertRestaurant } from "../src/lib/types";
+import { initializeApp, getApps } from 'firebase/app';
 
 interface BrowserNotificationOptions {
   title: string;
@@ -13,6 +14,17 @@ interface BrowserNotificationOptions {
   silent?: boolean;
 }
 
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
+
+
 export class SimpleBrowserNotificationService {
   private lastSeenTimestamp: Date;
   private isFirstLoad = true;
@@ -21,8 +33,14 @@ export class SimpleBrowserNotificationService {
   private isListening = false; // ✅ FIX: Traccia stato interno
   
   constructor() {
-    this.db = getFirestore();
-
+    try
+    {
+      this.db = getFirestore();
+    }catch(ex)
+    {
+      initializeApp(firebaseConfig);
+      this.db = getFirestore();
+    }
     // Recupera timestamp dell'ultima notifica vista
     const stored = localStorage.getItem('lastNotificationSeen');
     this.lastSeenTimestamp = stored ? new Date(stored) : new Date();
@@ -69,97 +87,114 @@ export class SimpleBrowserNotificationService {
    * 🔔 MOSTRA NOTIFICA BROWSER (VERSIONE MIGLIORATA)
    */
   private async showBrowserNotification(options: BrowserNotificationOptions): Promise<boolean> {
-    // ✅ FIX: Controlli più dettagliati per Android
-    console.log('🔔 Tentativo notifica:', {
-      supported: 'Notification' in window,
-      permission: Notification.permission,
-      userAgent: navigator.userAgent,
-      isAndroid: /Android/i.test(navigator.userAgent)
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  
+  console.log('🔔 Tentativo notifica:', {
+    supported: 'Notification' in window,
+    permission: Notification.permission,
+    userAgent: navigator.userAgent,
+    isAndroid,
+    tag: options.tag,
+    title: options.title
+  });
+
+  if (!('Notification' in window)) {
+    console.error('❌ Notification API non supportata');
+    return false;
+  }
+
+  if (Notification.permission !== 'granted') {
+    console.error('❌ Permessi non concessi:', Notification.permission);
+    return false;
+  }
+
+  // ✅ Android workaround
+  if (isAndroid && document.visibilityState !== 'visible') {
+    console.warn('⚠️ Android: pagina non visibile, notifica potrebbe non apparire');
+  }
+
+  try {
+    // ✅ FIX: Chiudi eventuali notifiche precedenti con tag simili
+    if (options.tag && options.tag.includes('new-restaurant')) {
+      console.log('🧹 Preparando spazio per nuova notifica...');
+    }
+
+    const notification = new Notification(options.title, {
+      body: options.body,
+      icon: options.icon || '/icon-192.png',
+      badge: options.badge || '/badge-72.png',
+      tag: options.tag || 'triptaste-notification',
+      data: options.data,
+      requireInteraction: options.requireInteraction || false,
+      silent: options.silent || false
     });
 
-    // Controlla supporto
-    if (!('Notification' in window)) {
-      console.error('❌ Notification API non supportata');
-      return false;
-    }
+    console.log('✅ Notifica creata:', {
+      title: notification.title,
+      body: notification.body,
+      tag: notification.tag,
+      timestamp: new Date().toISOString()
+    });
 
-    // Controlla permesso
-    if (Notification.permission !== 'granted') {
-      console.error('❌ Permessi non concessi:', Notification.permission);
-      return false;
-    }
-
-    // ✅ FIX: Android workaround - verifica se la pagina è visibile
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    if (isAndroid && document.visibilityState !== 'visible') {
-      console.warn('⚠️ Android: pagina non visibile, notifica potrebbe non apparire');
-    }
-
-    try {
-      const notification = new Notification(options.title, {
-        body: options.body,
-        icon: options.icon || '/icon-192.png',
-        badge: options.badge || '/badge-72.png',
-        tag: options.tag || 'triptaste-notification',
-        data: options.data,
-        requireInteraction: options.requireInteraction || false,
-        silent: options.silent || false,
-      });
-
-      console.log('✅ Notifica creata:', notification);
-
-      // Click handler
-      notification.onclick = () => {
-        console.log('👆 Notifica cliccata');
-        window.focus();
-        notification.close();
-        
-        // Naviga al ristorante se specificato
-        if (options.data?.restaurantId) {
-          window.location.href = `/restaurant/${options.data.restaurantId}`;
-        }
-      };
-
-      // Error handler
-      notification.onerror = (error) => {
-        console.error('❌ Errore notifica:', error);
-      };
-
-      // Auto-close dopo 8 secondi (più tempo per Android)
-      if (!options.requireInteraction) {
-        setTimeout(() => {
-          try {
-            notification.close();
-          } catch (e) {
-            // Ignore se già chiusa
-          }
-        }, 8000);
-      }
-
-      return true;
-    } catch (error) {
-      console.error('❌ Errore creazione notifica:', error);
+    // Event handlers più dettagliati
+    notification.onclick = () => {
+      console.log('👆 Notifica cliccata:', notification.title);
+      window.focus();
+      notification.close();
       
-      // ✅ FIX: Per Android, prova metodo alternativo
-      if (isAndroid) {
+      if (options.data?.restaurantId) {
+        window.location.href = `/restaurant/${options.data.restaurantId}`;
+      }
+    };
+
+    notification.onshow = () => {
+      console.log('👁️ Notifica mostrata:', notification.title);
+    };
+
+    notification.onerror = (error) => {
+      console.error('❌ Errore notifica:', error);
+    };
+
+    notification.onclose = () => {
+      console.log('❌ Notifica chiusa:', notification.title);
+    };
+
+    // ✅ FIX: Timeout più lungo per dare tempo di vedere la notifica
+    if (!options.requireInteraction) {
+      setTimeout(() => {
         try {
-          // Fallback per Android: crea notifica più semplice
-          const simpleNotification = new Notification(options.title, {
-            body: options.body,
-            icon: '/icon-192.png'
-          });
-          
-          setTimeout(() => simpleNotification.close(), 5000);
-          console.log('✅ Android fallback notifica creata');
-          return true;
-        } catch (fallbackError) {
-          console.error('❌ Android fallback fallito:', fallbackError);
+          console.log('⏰ Auto-close notifica:', notification.title);
+          notification.close();
+        } catch (e) {
+          // Ignore se già chiusa
         }
-      }
-      
-      return false;
+      }, 10000); // ✅ Aumentato a 10 secondi
     }
+
+    return true;
+  } catch (error) {
+    console.error('❌ Errore creazione notifica:', error);
+    
+    // Android fallback
+    if (isAndroid) {
+      try {
+        const simpleNotification = new Notification(options.title, {
+          body: options.body,
+          icon: '/icon-192.png',
+          tag: 'android-fallback-' + Date.now()
+        });
+        
+        setTimeout(() => simpleNotification.close(), 8000);
+        console.log('✅ Android fallback notifica creata');
+        return true;
+      } catch (fallbackError) {
+        console.error('❌ Android fallback fallito:', fallbackError);
+      }
+    }
+    
+    return false;
   }
+}
 
   /**
    * 🎧 AVVIA LISTENER REAL-TIME CON NOTIFICHE (VERSIONE MIGLIORATA)
@@ -205,21 +240,75 @@ startNotificationListener(): () => void {
       if (change.type === 'added') {
         const restaurant = change.doc.data() as Restaurant;
         
-        // ✅ CORREZIONE: createdAt è già Date, non serve conversione!
-        const createdAt = restaurant.createdAt || new Date();
-        
-        console.log('📅 Timestamp comparison:', {
-          restaurantCreated: createdAt.toISOString(),
-          lastSeen: this.lastSeenTimestamp.toISOString(),
-          isNewer: createdAt > this.lastSeenTimestamp,
-          restaurantName: restaurant.name
+        // ✅ FIX: Debug completo del tipo di createdAt
+        console.log('🔍 Debug createdAt:', {
+          raw: restaurant.createdAt,
+          type: typeof restaurant.createdAt,
+          isDate: restaurant.createdAt instanceof Date,
+          isNull: restaurant.createdAt === null,
+          isUndefined: restaurant.createdAt === undefined,
+          constructor: restaurant.createdAt?.constructor?.name,
+          hasToDate: restaurant.createdAt && typeof restaurant.createdAt === 'object' && 'toDate' in restaurant.createdAt
         });
         
-        // ✅ CORREZIONE: Logica più semplice e corretta
-        // Considera "nuovo" se aggiunto negli ultimi 2 minuti O se dopo lastSeen
-        const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-        const isVeryRecent = createdAt > twoMinutesAgo;
-        const isAfterLastSeen = createdAt > this.lastSeenTimestamp;
+        // ✅ FIX: Conversione ultra-sicura
+        let createdAt: Date;
+        let parseSuccess = false;
+        
+        try {
+          if (restaurant.createdAt instanceof Date && !isNaN(restaurant.createdAt.getTime())) {
+            // È già un Date valido
+            createdAt = restaurant.createdAt;
+            parseSuccess = true;
+          } else if (restaurant.createdAt && typeof restaurant.createdAt === 'object' && 'toDate' in restaurant.createdAt) {
+            // Firestore Timestamp
+            createdAt = (restaurant.createdAt as any).toDate();
+            parseSuccess = !isNaN(createdAt.getTime());
+          } else if (restaurant.createdAt && typeof restaurant.createdAt === 'string') {
+            // String ISO
+            createdAt = new Date(restaurant.createdAt);
+            parseSuccess = !isNaN(createdAt.getTime());
+          } else if (restaurant.createdAt && typeof restaurant.createdAt === 'number') {
+            // Timestamp numerico
+            createdAt = new Date(restaurant.createdAt);
+            parseSuccess = !isNaN(createdAt.getTime());
+          } else {
+            // Fallback
+            createdAt = new Date();
+            parseSuccess = false;
+            console.warn('⚠️ createdAt fallback per:', restaurant.name);
+          }
+          
+          // ✅ FIX: Verifica finale che sia un Date valido
+          if (!parseSuccess || !(createdAt instanceof Date) || isNaN(createdAt.getTime())) {
+            console.error('❌ createdAt parsing fallito, usando ora corrente');
+            createdAt = new Date();
+          }
+          
+        } catch (error) {
+          console.error('❌ Errore parsing createdAt:', error);
+          createdAt = new Date();
+        }
+        
+        // ✅ FIX: Ora siamo sicuri che createdAt sia un Date valido
+        const now = Date.now();
+        const createdTime = createdAt.getTime();
+        const minutesAgo = Math.round((now - createdTime) / (1000 * 60));
+        
+        console.log('📅 Nuovo ristorante trovato:', {
+          name: restaurant.name,
+          createdAt: createdAt.toISOString(),
+          lastSeen: this.lastSeenTimestamp.toISOString(),
+          minutesAgo: minutesAgo,
+          parseSuccess
+        });
+        
+        // ✅ FIX: Logica più permissiva per test
+        const oneMinuteAgo = now - (1 * 60 * 1000);
+        const lastSeenTime = this.lastSeenTimestamp.getTime();
+        
+        const isVeryRecent = createdTime > oneMinuteAgo;
+        const isAfterLastSeen = createdTime > lastSeenTime;
         
         if (isVeryRecent || isAfterLastSeen) {
           console.log('🔔 Triggering notification for:', restaurant.name);
@@ -228,7 +317,7 @@ startNotificationListener(): () => void {
           console.log('⏭️ Skipping old restaurant:', restaurant.name, {
             isVeryRecent,
             isAfterLastSeen,
-            minutesAgo: Math.round((Date.now() - createdAt.getTime()) / (1000 * 60))
+            minutesAgo
           });
         }
       }
@@ -237,9 +326,10 @@ startNotificationListener(): () => void {
     console.error('❌ Errore listener Firestore:', error);
   });
 
-  // Aggiorna stato
+  // ✅ FIX: Aggiorna stato correttamente
   this.isListening = true;
   localStorage.setItem('notificationListenerActive', 'true');
+  console.log('✅ Listener attivato, stato salvato');
   
   return () => this.stopNotificationListener();
 }
@@ -248,30 +338,34 @@ startNotificationListener(): () => void {
    * 🍽️ NOTIFICA NUOVO RISTORANTE
    */
   private async notifyNewRestaurant(restaurant: Restaurant): Promise<void> {
-    console.log('🍽️ Creando notifica per ristorante:', restaurant.name);
-    
-    const success = await this.showBrowserNotification({
-      title: '🍽️ Nuovo Ristorante Scoperto!',
-      body: `${restaurant.name} è stato aggiunto in ${restaurant.location}`,
-      icon: '/icon-192.png',
-      badge: '/badge-72.png',
-      tag: 'new-restaurant',
-      data: {
-        restaurantId: restaurant.id,
-        restaurantName: restaurant.name,
-        location: restaurant.location
-      },
-      requireInteraction: false,
-      silent: false
-    });
+  console.log('🍽️ Creando notifica per ristorante:', restaurant.name);
+  
+  // ✅ FIX: Tag unico per evitare conflitti con notifiche precedenti
+  const uniqueTag = `new-restaurant-${restaurant.id}-${Date.now()}`;
+  
+  const success = await this.showBrowserNotification({
+    title: '🍽️ Nuovo Ristorante Scoperto!',
+    body: `${restaurant.name} è stato aggiunto in ${restaurant.location}`,
+    icon: '/icon-192.png',
+    badge: '/badge-72.png',
+    tag: uniqueTag, // ✅ FIX: Tag unico invece di fisso
+    data: {
+      restaurantId: restaurant.id,
+      restaurantName: restaurant.name,
+      location: restaurant.location
+    },
+    requireInteraction: false,
+    silent: false
+  });
 
-    if (success) {
-      console.log(`✅ Notifica mostrata per: ${restaurant.name}`);
-      this.logNotificationShown(restaurant);
-    } else {
-      console.error(`❌ Notifica fallita per: ${restaurant.name}`);
-    }
+  if (success) {
+    console.log(`✅ Notifica mostrata per: ${restaurant.name}`);
+    this.logNotificationShown(restaurant);
+  } else {
+    console.error(`❌ Notifica fallita per: ${restaurant.name}`);
   }
+}
+
 
   /**
    * 📊 LOG STATISTICHE

@@ -35,18 +35,16 @@ const Info = () => {
   const [stats, setStats] = useState({ totalShown: 0, lastShown: null });
 
   useEffect(() => {
-    // Carica statistiche notifiche
-    const savedStats = JSON.parse(localStorage.getItem('notificationStats') || '{}');
-    setStats({
-      totalShown: savedStats.totalShown || 0,
-      lastShown: savedStats.lastShown || null
-    });
-
-    // Cleanup on unmount
-    return () => {
-      notificationService.destroy();
-    };
-  }, [notificationService]);
+  // Aggiorna stato iniziale DOPO che il servizio è inizializzato
+  setTimeout(() => {
+    const initialStatus = notificationService.getPermissionStatus();
+    setPermissionStatus(initialStatus);
+    setIsListening(initialStatus.isListening);
+    console.log('🔄 Stato UI aggiornato:', initialStatus);
+  }, 1500); // Delay per permettere auto-ripristino
+  
+  // ... resto del useEffect rimane uguale
+}, [notificationService]);
 
   // Handlers per le notifiche
   const handleRequestPermission = async () => {
