@@ -7,7 +7,8 @@ import {
   Heart, 
   PlusCircle,
   Menu,
-  LucideIcon
+  LucideIcon,
+  Info
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -46,7 +47,9 @@ const Navigation = () => {
     { path: "/recommended", label: "Consigliati", icon: TrendingUp },
     { path: "/calendar", label: "Calendario", icon: Calendar },
     { path: "/favorites", label: "Preferiti", icon: Heart },
-    { path: "/add-restaurant", label: "Aggiungi", icon: PlusCircle }
+    { path: "/add-restaurant", label: "Aggiungi", icon: PlusCircle },
+    { path: "/info", label: "Info", icon: Info }
+
   ];
   
   // Componente per i link di navigazione

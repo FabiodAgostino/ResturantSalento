@@ -8,6 +8,7 @@ import Calendar from "./pages/Calendar";
 import Favorites from "./pages/Favorites";
 import AddRestaurant from "./pages/AddRestaurant";
 import NotFound from "./pages/not-found";
+import Info from "./pages/Info";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
           <Route path="/calendar" component={Calendar} />
           <Route path="/favorites" component={Favorites} />
           <Route path="/add-restaurant" component={AddRestaurant} />
+          <Route path="/info" component={Info} />
           <Route component={NotFound} />
         </Switch>
       </div>
