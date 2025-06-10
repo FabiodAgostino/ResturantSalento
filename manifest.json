@@ -1,0 +1,17 @@
+{
+  "name": "TripTaste",
+  "short_name": "TripTaste",
+  "description": "Scopri i migliori ristoranti",
+  "display": "standalone",
+  "start_url": "/TripTaste/#/",
+  "scope": "/TripTaste/",
+  "theme_color": "#D2691E",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/TripTaste/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
