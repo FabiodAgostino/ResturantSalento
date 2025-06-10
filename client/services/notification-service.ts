@@ -63,7 +63,12 @@ export class SimpleBrowserNotificationService {
     }
 
     try {
-      this.serviceWorkerRegistration = await navigator.serviceWorker.register('/sw.js');
+      // ✅ FIX: Rileva automaticamente il base URL
+      const baseUrl = import.meta.env.BASE_URL || '/';
+      const swPath = `${baseUrl}sw.js`.replace('//', '/'); // Evita doppie slash
+      
+      console.log('📍 Registrando Service Worker da:', swPath);
+      this.serviceWorkerRegistration = await navigator.serviceWorker.register(swPath);
       await navigator.serviceWorker.ready;
       console.log('✅ Service Worker pronto');
     } catch (error) {
@@ -122,7 +127,8 @@ export class SimpleBrowserNotificationService {
           icon: options.icon || '/icon-192.png',
           badge: options.badge || '/badge-72.png',
           tag: options.tag || 'triptaste-notification',
-          data: options.data,
+          data: options.data
+          // vibrate supportato solo in ServiceWorker context
         });
         
         console.log('✅ Notifica Android via Service Worker');

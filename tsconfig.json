@@ -5,7 +5,7 @@
     "client/services/**/*",
     "client/**/*.ts",
     "client/**/*.tsx"
-  ],
+, "public"  ],
   "exclude": [
     "node_modules", 
     "build", 
