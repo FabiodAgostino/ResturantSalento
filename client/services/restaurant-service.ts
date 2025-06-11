@@ -74,6 +74,8 @@ export class RestaurantServiceError extends Error {
     switch (this.code) {
       case 'FIREBASE_CONFIG_ERROR':
         return 'Errore di configurazione del database. Contatta il supporto tecnico.';
+      case 'DUPLICATE_RESTAURANT':
+        return 'Esiste già un ristorante con questo nome. Scegli un nome diverso o verifica se il ristorante è già presente.';
       case 'FIREBASE_INIT_ERROR':
         return 'Impossibile connettersi al database. Riprova tra qualche minuto.';
       case 'FETCH_ERROR':
@@ -122,6 +124,7 @@ export class RestaurantValidator {
     }
   }
 
+  
   /**
    * Valida i dati di un ristorante
    */
@@ -286,6 +289,35 @@ export class RestaurantService {
     }
   }
 
+  private async checkDuplicateRestaurant(name: string): Promise<boolean> {
+  try {
+    // Normalizza il nome per il confronto (rimuovi spazi extra, lowercase)
+    const normalizedName = name.trim().toLowerCase();
+    
+    // Query per cercare ristoranti con nome simile
+    const q = query(this.restaurantsRef, where('name', '==', name.trim()));
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+      return true; // Duplicato esatto trovato
+    }
+    
+    // Controllo alternativo: cerca nomi simili (case-insensitive)
+    const allRestaurants = await getDocs(this.restaurantsRef);
+    const duplicateFound = allRestaurants.docs.some(doc => {
+      const existingName = doc.data().name?.trim().toLowerCase();
+      return existingName === normalizedName;
+    });
+    
+    return duplicateFound;
+  } catch (error) {
+    console.warn('⚠️ Errore controllo duplicati:', error);
+    // In caso di errore, lascia passare per non bloccare l'inserimento
+    return false;
+  }
+}
+
+
   /**
    * Ottiene un singolo ristorante per ID
    */
@@ -330,43 +362,52 @@ export class RestaurantService {
    * Crea un nuovo ristorante
    */
   public async createRestaurant(insertRestaurant: InsertRestaurant): Promise<Restaurant> {
-    // Validazione dei dati
-    const validationErrors = RestaurantValidator.validateRestaurantData(insertRestaurant);
-    if (validationErrors.length > 0) {
-      throw new RestaurantServiceError(
-        `Dati non validi: ${validationErrors.join(', ')}`,
-        'VALIDATION_ERROR'
-      );
-    }
-
-    try {
-      const restaurantId = SnowflakeIdGenerator.generateId();
-      const restaurantData = {
-        ...insertRestaurant,
-        id: restaurantId,
-        isApproved: true,
-        createdAt: Timestamp.now(),
-      };
-
-      // Rimuovi i campi undefined
-      const cleanData = Object.fromEntries(
-        Object.entries(restaurantData).filter(([_, value]) => value !== undefined)
-      );
-
-      await addDoc(this.restaurantsRef, cleanData);
-      
-      return { 
-        ...cleanData,
-        createdAt: toDate(cleanData.createdAt)
-      } as Restaurant;
-    } catch (error) {
-      throw new RestaurantServiceError(
-        'Errore nella creazione del ristorante',
-        'CREATE_ERROR',
-        error
-      );
-    }
+  // Validazione dei dati
+  const validationErrors = RestaurantValidator.validateRestaurantData(insertRestaurant);
+  if (validationErrors.length > 0) {
+    throw new RestaurantServiceError(
+      `Dati non validi: ${validationErrors.join(', ')}`,
+      'VALIDATION_ERROR'
+    );
   }
+
+  // 🔧 NUOVO: Controllo duplicati
+  const isDuplicate = await this.checkDuplicateRestaurant(insertRestaurant.name);
+  if (isDuplicate) {
+    throw new RestaurantServiceError(
+      `Un ristorante con il nome "${insertRestaurant.name}" esiste già nel database.`,
+      'DUPLICATE_RESTAURANT'
+    );
+  }
+
+  try {
+    const restaurantId = SnowflakeIdGenerator.generateId();
+    const restaurantData = {
+      ...insertRestaurant,
+      id: restaurantId,
+      isApproved: true,
+      createdAt: Timestamp.now(),
+    };
+
+    // Rimuovi i campi undefined
+    const cleanData = Object.fromEntries(
+      Object.entries(restaurantData).filter(([_, value]) => value !== undefined)
+    );
+
+    await addDoc(this.restaurantsRef, cleanData);
+    
+    return { 
+      ...cleanData,
+      createdAt: toDate(cleanData.createdAt)
+    } as Restaurant;
+  } catch (error) {
+    throw new RestaurantServiceError(
+      'Errore nella creazione del ristorante',
+      'CREATE_ERROR',
+      error
+    );
+  }
+}
 
   /**
    * Aggiorna un ristorante esistente
