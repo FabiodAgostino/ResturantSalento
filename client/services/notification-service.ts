@@ -19,6 +19,7 @@ interface NotificationState {
   lastProcessedTimestamp: number;
   totalNotificationsShown: number;
   isActive: boolean;
+  processedIds: Set<number>; // 🔧 FIX: Set per tracciare ID processati
 }
 
 const firebaseConfig = {
@@ -39,12 +40,23 @@ export class EnhancedNotificationService {
   private isInitialized = false;
   private retryCount = 0;
   private maxRetries = 3;
+  private serviceWorkerRegistration?: ServiceWorkerRegistration;
+  private isAndroid: boolean;
+  private isMobile: boolean;
   
   constructor() {
-    // Genera ID dispositivo unico e persistente
+    // 🔧 FIX: Rileva dispositivo all'inizio
+    this.isAndroid = /Android/i.test(navigator.userAgent);
+    this.isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    console.log('📱 Dispositivo rilevato:', {
+      isAndroid: this.isAndroid,
+      isMobile: this.isMobile,
+      userAgent: navigator.userAgent.substring(0, 50)
+    });
+    
     this.deviceId = this.getOrCreateDeviceId();
     
-    // Inizializza Firebase
     try {
       this.db = getFirestore();
     } catch (ex) {
@@ -52,15 +64,61 @@ export class EnhancedNotificationService {
       this.db = getFirestore();
     }
 
-    // Carica stato persistente
     this.state = this.loadState();
     
-    // Inizializza in modo asincrono per evitare blocchi
-    this.initialize();
+    // 🔧 FIX: Inizializza SW PRIMA di tutto il resto
+    this.initializeAsync();
   }
 
   /**
-   * 🔑 GENERA ID DISPOSITIVO UNICO E PERSISTENTE
+   * 🚀 INIZIALIZZAZIONE ASINCRONA RISTRUTTURATA
+   */
+  private async initializeAsync(): Promise<void> {
+    try {
+      // 1. Prima registra Service Worker (CRITICO per mobile)
+      if (this.isMobile) {
+        console.log('📱 Inizializzazione Service Worker per mobile...');
+        var result = await this.initServiceWorker();
+        if(result)
+          this.serviceWorkerRegistration =result;
+
+        if (!this.serviceWorkerRegistration) {
+          console.warn('⚠️ Service Worker registration fallita su mobile');
+        } else {
+          console.log('✅ Service Worker registrato su mobile');
+        }
+      }
+      
+      // 2. Poi sincronizza stato
+      await this.syncStateWithFirestore();
+      
+      // 3. Marca come inizializzato
+      this.isInitialized = true;
+      
+      // 4. Riavvia listener se era attivo
+      if (this.state.isActive) {
+        console.log('🔄 Ripristino listener notifiche...');
+        setTimeout(() => this.startNotificationListener(), 1000); // Delay per stabilità
+      }
+      
+      console.log('✅ Servizio notifiche inizializzato');
+      
+    } catch (error) {
+      console.error('❌ Inizializzazione fallita:', error);
+      
+      if (this.retryCount < this.maxRetries) {
+        this.retryCount++;
+        const delay = Math.pow(2, this.retryCount) * 1000;
+        console.log(`🔄 Retry inizializzazione tra ${delay}ms...`);
+        setTimeout(() => this.initializeAsync(), delay);
+      } else {
+        console.error('💀 Inizializzazione fallita definitivamente');
+      }
+    }
+  }
+
+  /**
+   * 🔑 GENERA ID DISPOSITIVO UNICO
    */
   private getOrCreateDeviceId(): string {
     let deviceId = localStorage.getItem('triptaste_device_id');
@@ -72,7 +130,7 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * 💾 CARICA STATO DA STORAGE PERSISTENTE
+   * 💾 CARICA STATO CON FIX PER SET
    */
   private loadState(): NotificationState {
     try {
@@ -83,7 +141,9 @@ export class EnhancedNotificationService {
           lastProcessedId: parsed.lastProcessedId || null,
           lastProcessedTimestamp: parsed.lastProcessedTimestamp || Date.now(),
           totalNotificationsShown: parsed.totalNotificationsShown || 0,
-          isActive: parsed.isActive || false
+          isActive: parsed.isActive || false,
+          // 🔧 FIX: Ricostruisci Set da array
+          processedIds: new Set(parsed.processedIds || [])
         };
       }
     } catch (error) {
@@ -94,23 +154,29 @@ export class EnhancedNotificationService {
       lastProcessedId: null,
       lastProcessedTimestamp: Date.now(),
       totalNotificationsShown: 0,
-      isActive: false
+      isActive: false,
+      processedIds: new Set<number>()
     };
   }
 
   /**
-   * 💾 SALVA STATO IN STORAGE PERSISTENTE
+   * 💾 SALVA STATO CON FIX PER SET
    */
   private saveState(): void {
     try {
-      localStorage.setItem(this.stateKey, JSON.stringify(this.state));
+      const stateToSave = {
+        ...this.state,
+        // 🔧 FIX: Converti Set in array per serializzazione
+        processedIds: Array.from(this.state.processedIds)
+      };
+      localStorage.setItem(this.stateKey, JSON.stringify(stateToSave));
     } catch (error) {
       console.error('❌ Errore salvataggio stato:', error);
     }
   }
 
   /**
-   * 🔄 SINCRONIZZA STATO CON FIRESTORE (per dispositivi multipli)
+   * 🔄 SINCRONIZZA CON FIRESTORE
    */
   private async syncStateWithFirestore(): Promise<void> {
     try {
@@ -118,18 +184,28 @@ export class EnhancedNotificationService {
       const firestoreState = await getDoc(stateDoc);
       
       if (firestoreState.exists()) {
-        const remoteState = firestoreState.data() as NotificationState;
+        const remoteState = firestoreState.data();
         
-        // Usa il timestamp più recente tra locale e remoto
         if (remoteState.lastProcessedTimestamp > this.state.lastProcessedTimestamp) {
-          this.state = { ...remoteState };
+          // 🔧 FIX: Merge processedIds invece di sovrascrivere
+          const remoteProcessedIds = new Set(remoteState.processedIds || []);
+          const mergedIds = new Set([...this.state.processedIds, ...remoteProcessedIds]);
+          
+          this.state = {
+            ...remoteState,
+            processedIds: mergedIds
+          };
           this.saveState();
-          console.log('📥 Stato sincronizzato da Firestore');
+          console.log('📥 Stato sincronizzato da Firestore con merge');
         }
       }
       
-      // Aggiorna sempre lo stato remoto con quello corrente
-      await setDoc(stateDoc, this.state);
+      // Salva stato corrente su Firestore
+      const stateToSave = {
+        ...this.state,
+        processedIds: Array.from(this.state.processedIds)
+      };
+      await setDoc(stateDoc, stateToSave);
       
     } catch (error) {
       console.warn('⚠️ Sincronizzazione stato fallita:', error);
@@ -137,33 +213,7 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * 🚀 INIZIALIZZAZIONE ASINCRONA
-   */
-  private async initialize(): Promise<void> {
-    try {
-      await this.syncStateWithFirestore();
-      this.isInitialized = true;
-      
-      // Riavvia listener se era attivo
-      if (this.state.isActive) {
-        console.log('🔄 Ripristino listener notifiche...');
-        this.startNotificationListener();
-      }
-      
-    } catch (error) {
-      console.error('❌ Inizializzazione fallita:', error);
-      
-      // Retry con backoff esponenziale
-      if (this.retryCount < this.maxRetries) {
-        this.retryCount++;
-        const delay = Math.pow(2, this.retryCount) * 1000;
-        setTimeout(() => this.initialize(), delay);
-      }
-    }
-  }
-
-  /**
-   * 🔧 INIZIALIZZA SERVICE WORKER con gestione errori avanzata
+   * 🔧 SERVICE WORKER CON GESTIONE ROBUSTA ERRORI
    */
   private async initServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     if (!('serviceWorker' in navigator)) {
@@ -175,14 +225,31 @@ export class EnhancedNotificationService {
       const baseUrl = import.meta.env.BASE_URL || '/';
       const swPath = `${baseUrl}sw.js`.replace('//', '/');
       
-      const registration = await navigator.serviceWorker.register(swPath);
-      await navigator.serviceWorker.ready;
+      console.log('🔧 Registrando Service Worker:', swPath);
       
-      // Gestisci aggiornamenti del SW
-      registration.addEventListener('updatefound', () => {
-        console.log('🔄 Service Worker aggiornato');
+      const registration = await navigator.serviceWorker.register(swPath, {
+        scope: baseUrl
       });
       
+      // 🔧 FIX: Attendi che SW sia davvero pronto
+      await navigator.serviceWorker.ready;
+      
+      // 🔧 FIX: Verifica che la registration sia attiva
+      if (!registration.active) {
+        console.log('⏳ Attendo attivazione Service Worker...');
+        await new Promise((resolve) => {
+          const checkActive = () => {
+            if (registration.active) {
+              resolve(true);
+            } else {
+              setTimeout(checkActive, 100);
+            }
+          };
+          checkActive();
+        });
+      }
+      
+      console.log('✅ Service Worker attivo e pronto');
       return registration;
       
     } catch (error) {
@@ -192,7 +259,7 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * 🔐 RICHIEDI PERMESSO con retry intelligente
+   * 🔐 RICHIEDI PERMESSO
    */
   async requestPermission(): Promise<NotificationPermission> {
     if (!('Notification' in window)) {
@@ -220,7 +287,7 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * 🔔 MOSTRA NOTIFICA con fallback robusto
+   * 🔔 MOSTRA NOTIFICA CON FIX MOBILE
    */
   private async showBrowserNotification(options: BrowserNotificationOptions): Promise<boolean> {
     if (!('Notification' in window) || Notification.permission !== 'granted') {
@@ -228,61 +295,72 @@ export class EnhancedNotificationService {
       return false;
     }
 
-    const isAndroid = /Android/i.test(navigator.userAgent);
-    
     try {
-      // Prova prima con Service Worker (Android)
-      if (isAndroid) {
-        const swRegistration = await this.initServiceWorker();
-        if (swRegistration) {
-          await swRegistration.showNotification(options.title, {
+      let notificationShown = false;
+      
+      // 🔧 FIX: PRIMA prova Service Worker (se disponibile)
+      if (this.serviceWorkerRegistration && this.serviceWorkerRegistration.active) {
+        try {
+          console.log('📱 Tentativo notifica via Service Worker...');
+          
+          await this.serviceWorkerRegistration.showNotification(options.title, {
             body: options.body,
             icon: options.icon || '/icon-192.png',
             badge: options.badge || '/badge-72.png',
             tag: options.tag || `triptaste-${Date.now()}`,
             data: options.data,
-            requireInteraction: false
+            requireInteraction: false,
+            silent: false
           });
           
-          console.log('📱 Notifica Android mostrata via SW');
-          return true;
+          console.log('✅ Notifica Service Worker mostrata');
+          notificationShown = true;
+          
+        } catch (swError) {
+          console.warn('⚠️ Notifica Service Worker fallita:', swError);
+          // Continua con fallback
         }
       }
-
-      // Fallback: notifica normale
-      const notification = new Notification(options.title, {
-        body: options.body,
-        icon: options.icon || '/icon-192.png',
-        badge: options.badge || '/badge-72.png',
-        tag: options.tag || `triptaste-${Date.now()}`,
-        data: options.data,
-        requireInteraction: options.requireInteraction || false,
-        silent: options.silent || false
-      });
-
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-        
-        if (options.data?.restaurantId) {
-          window.location.href = `/restaurant/${options.data.restaurantId}`;
-        }
-      };
-
-      // Auto-close dopo 8 secondi
-      setTimeout(() => notification.close(), 8000);
       
-      console.log('🖥️ Notifica desktop mostrata');
-      return true;
+      // 🔧 FIX: FALLBACK SEMPRE - notifica normale se SW fallisce
+      if (!notificationShown) {
+        console.log('🖥️ Tentativo notifica standard...');
+        
+        const notification = new Notification(options.title, {
+          body: options.body,
+          icon: options.icon || '/icon-192.png',
+          badge: options.badge || '/badge-72.png',
+          tag: options.tag || `triptaste-${Date.now()}`,
+          data: options.data,
+          requireInteraction: options.requireInteraction || false,
+          silent: options.silent || false
+        });
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+          
+          if (options.data?.restaurantId) {
+            window.location.href = `/restaurant/${options.data.restaurantId}`;
+          }
+        };
+
+        setTimeout(() => notification.close(), 8000);
+        
+        console.log('✅ Notifica standard mostrata');
+        notificationShown = true;
+      }
+
+      return notificationShown;
 
     } catch (error) {
-      console.error('❌ Errore notifica:', error);
+      console.error('❌ Errore notifica completo:', error);
       return false;
     }
   }
 
   /**
-   * 🎧 AVVIA LISTENER con gestione robusta del riavvio
+   * 🎧 AVVIA LISTENER CON FIX DEDUPLICAZIONE
    */
   startNotificationListener(): () => void {
     if (!this.isInitialized) {
@@ -290,7 +368,6 @@ export class EnhancedNotificationService {
       return () => {};
     }
 
-    // Ferma listener esistente
     if (this.unsubscribeFirestore) {
       this.unsubscribeFirestore();
     }
@@ -300,7 +377,7 @@ export class EnhancedNotificationService {
     const restaurantsQuery = query(
       collection(this.db, 'restaurants'),
       orderBy('createdAt', 'desc'),
-      limit(50) // Aumentato per sicurezza
+      limit(50)
     );
 
     this.unsubscribeFirestore = onSnapshot(
@@ -309,7 +386,6 @@ export class EnhancedNotificationService {
       (error) => this.handleSnapshotError(error)
     );
 
-    // Aggiorna stato
     this.state.isActive = true;
     this.saveState();
     this.syncStateWithFirestore();
@@ -318,18 +394,17 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * 📡 GESTISCI AGGIORNAMENTI SNAPSHOT
+   * 📡 GESTISCI SNAPSHOT CON FIX DUPLICATI
    */
   private async handleSnapshotUpdate(snapshot: any): Promise<void> {
     console.log('📡 Snapshot ricevuto:', {
       size: snapshot.size,
       changes: snapshot.docChanges().length,
-      lastProcessedId: this.state.lastProcessedId
+      processedIds: this.state.processedIds.size
     });
 
     const newRestaurants: Restaurant[] = [];
     
-    // Processa solo nuove aggiunte
     snapshot.docChanges().forEach((change: any) => {
       if (change.type === 'added') {
         const restaurant = { 
@@ -337,9 +412,12 @@ export class EnhancedNotificationService {
           ...change.doc.data() 
         } as Restaurant;
         
-        // Filtra solo ristoranti davvero nuovi
-        if (this.isNewRestaurant(restaurant)) {
+        
+        if (!this.state.processedIds.has(restaurant.id)) {
+          console.log('🆕 Nuovo ristorante rilevato:', restaurant.name);
           newRestaurants.push(restaurant);
+        } else {
+          console.log('⏭️ Ristorante già processato:', restaurant.name);
         }
       }
     });
@@ -359,32 +437,12 @@ export class EnhancedNotificationService {
   private handleSnapshotError(error: any): void {
     console.error('❌ Errore listener:', error);
     
-    // Riprova dopo un delay
     setTimeout(() => {
       if (this.state.isActive) {
         console.log('🔄 Riavvio listener dopo errore...');
         this.startNotificationListener();
       }
     }, 5000);
-  }
-
-  /**
-   * 🆕 VERIFICA SE RISTORANTE È NUOVO
-   */
-  private isNewRestaurant(restaurant: Restaurant): boolean {
-    const timestamp = this.getTimestamp(restaurant);
-    
-    // Verifica timestamp
-    if (timestamp <= this.state.lastProcessedTimestamp) {
-      return false;
-    }
-    
-    // Verifica ID
-    if (this.state.lastProcessedId && restaurant.id <= this.state.lastProcessedId) {
-      return false;
-    }
-    
-    return true;
   }
 
   /**
@@ -406,12 +464,13 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * 🍽️ PROCESSA NUOVO RISTORANTE
+   * 🍽️ PROCESSA NUOVO RISTORANTE CON FIX
    */
   private async processNewRestaurant(restaurant: Restaurant): Promise<void> {
     const timestamp = this.getTimestamp(restaurant);
+    const restaurantKey = restaurant.id;
     
-    console.log('🍽️ Processando nuovo ristorante:', {
+    console.log('🍽️ Processando ristorante:', {
       name: restaurant.name,
       id: restaurant.id,
       timestamp: new Date(timestamp).toISOString()
@@ -431,15 +490,19 @@ export class EnhancedNotificationService {
     });
 
     if (success) {
-      // Aggiorna stato processamento
+      // 🔧 FIX: Aggiorna stato in modo più robusto
+      this.state.processedIds.add(restaurantKey);
       this.state.lastProcessedId = restaurant.id;
-      this.state.lastProcessedTimestamp = timestamp;
+      this.state.lastProcessedTimestamp = Math.max(this.state.lastProcessedTimestamp, timestamp);
       this.state.totalNotificationsShown++;
       
       this.saveState();
       this.syncStateWithFirestore();
       
-      console.log('✅ Notifica mostrata e stato aggiornato');
+      console.log('✅ Notifica mostrata e stato aggiornato:', {
+        totalShown: this.state.totalNotificationsShown,
+        processedCount: this.state.processedIds.size
+      });
     }
   }
 
@@ -453,11 +516,19 @@ export class EnhancedNotificationService {
       return false;
     }
 
-    const isAndroid = /Android/i.test(navigator.userAgent);
+    console.log('🧪 Test notifica per dispositivo:', {
+      isAndroid: this.isAndroid,
+      isMobile: this.isMobile,
+      hasServiceWorker: !!this.serviceWorkerRegistration
+    });
     
     const success = await this.showBrowserNotification({
-      title: '🧪 Test Notifica TripTaste',
-      body: isAndroid ? 'Test Android funzionante! 📱' : 'Test desktop funzionante! 🖥️',
+      title: '🧪 Test TripTaste',
+      body: this.isAndroid ? 
+        'Test Android funzionante! 📱' : 
+        this.isMobile ? 
+          'Test mobile funzionante! 📱' : 
+          'Test desktop funzionante! 🖥️',
       tag: `test-notification-${Date.now()}`,
       icon: '/icon-192.png'
     });
@@ -483,7 +554,7 @@ export class EnhancedNotificationService {
   }
 
   /**
-   * ❓ STATO SISTEMA
+   * ❓ STATO SISTEMA AGGIORNATO
    */
   getSystemStatus(): {
     supported: boolean;
@@ -496,6 +567,12 @@ export class EnhancedNotificationService {
       totalShown: number;
       lastProcessedId: number | null;
       lastProcessedTimestamp: string;
+      processedCount: number;
+    };
+    deviceInfo: {
+      isAndroid: boolean;
+      isMobile: boolean;
+      hasServiceWorker: boolean;
     };
   } {
     const supported = 'Notification' in window;
@@ -512,30 +589,37 @@ export class EnhancedNotificationService {
       stats: {
         totalShown: this.state.totalNotificationsShown,
         lastProcessedId: this.state.lastProcessedId,
-        lastProcessedTimestamp: new Date(this.state.lastProcessedTimestamp).toISOString()
+        lastProcessedTimestamp: new Date(this.state.lastProcessedTimestamp).toISOString(),
+        processedCount: this.state.processedIds.size
+      },
+      deviceInfo: {
+        isAndroid: this.isAndroid,
+        isMobile: this.isMobile,
+        hasServiceWorker: !!this.serviceWorkerRegistration
       }
     };
   }
 
   /**
-   * 🔄 RESET COMPLETO
+   * 🔄 RESET STATO
    */
   resetState(): void {
     this.state = {
       lastProcessedId: null,
       lastProcessedTimestamp: Date.now(),
       totalNotificationsShown: 0,
-      isActive: false
+      isActive: false,
+      processedIds: new Set<number>()
     };
     
     this.saveState();
     this.syncStateWithFirestore();
     
-    console.log('🔄 Stato notifiche resettato');
+    console.log('🔄 Stato notifiche resettato completamente');
   }
 
   /**
-   * 🧹 CLEANUP FINALE
+   * 🧹 CLEANUP
    */
   destroy(): void {
     this.stopNotificationListener();
