@@ -21,85 +21,151 @@ import {
   BellOff,
   Volume2,
   VolumeX,
-  Settings
+  Settings,
+  RefreshCw,
+  Trash2,
+  BarChart3,
+  Shield,
+  Wifi
 } from 'lucide-react';
 
-// Import del tuo servizio notifiche
-import { SimpleBrowserNotificationService} from "../../services/notification-service";
+// Import del servizio notifiche AGGIORNATO
+import { EnhancedNotificationService } from "../../services/notification-service";
 
 const Info = () => {
-  // Stato per le notifiche
-  const [notificationService] = useState(new SimpleBrowserNotificationService());
-  const [permissionStatus, setPermissionStatus] = useState(notificationService.getPermissionStatus());
-  const [isListening, setIsListening] = useState(false);
-  const [stats, setStats] = useState({ totalShown: 0, lastShown: null });
-
-  useEffect(() => {
-  // Aggiorna stato iniziale DOPO che il servizio è inizializzato
-  setTimeout(() => {
-    const initialStatus = notificationService.getPermissionStatus();
-    setPermissionStatus(initialStatus);
-    setIsListening(initialStatus.isListening);
-  }, 1500); // Delay per permettere auto-ripristino
+  // ========================================
+  // 🔄 STATO NOTIFICHE - COMPLETAMENTE RISTRUTTURATO
+  // ========================================
   
-  // ... resto del useEffect rimane uguale
-}, [notificationService]);
+  const [notificationService] = useState(new EnhancedNotificationService());
+  const [systemStatus, setSystemStatus] = useState(notificationService.getSystemStatus());
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // Handlers per le notifiche
+  // ========================================
+  // 🔄 EFFETTI E AGGIORNAMENTI
+  // ========================================
+  
+  useEffect(() => {
+    // Intervallo per aggiornare lo stato ogni 3 secondi
+    const statusInterval = setInterval(() => {
+      const newStatus = notificationService.getSystemStatus();
+      setSystemStatus(newStatus);
+      setLastUpdate(new Date());
+    }, 3000);
+
+    // Cleanup
+    return () => {
+      clearInterval(statusInterval);
+    };
+  }, [notificationService]);
+
+  // Aggiornamento manuale dello stato
+  const refreshStatus = () => {
+    const newStatus = notificationService.getSystemStatus();
+    setSystemStatus(newStatus);
+    setLastUpdate(new Date());
+  };
+
+  // ========================================
+  // 🎯 HANDLERS NOTIFICHE - AGGIORNATI
+  // ========================================
+
   const handleRequestPermission = async () => {
-    const permission = await notificationService.requestPermission();
-    setPermissionStatus(notificationService.getPermissionStatus());
-    
-    if (permission === 'granted') {
+    setIsLoading(true);
+    try {
+      const permission = await notificationService.requestPermission();
+      refreshStatus();
       
-    } else {
-      
+      if (permission === 'granted') {
+        console.log('✅ Permessi notifiche concessi');
+      } else if (permission === 'denied') {
+        console.log('❌ Permessi notifiche negati');
+      }
+    } catch (error) {
+      console.error('❌ Errore richiesta permessi:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleStartListening = () => {
-    const unsubscribe = notificationService.startNotificationListener();
-    setIsListening(true);
-    
-    // Salva il cleanup
-    (window as any).notificationCleanup = unsubscribe;
-    
-    
+    setIsLoading(true);
+    try {
+      const unsubscribe = notificationService.startNotificationListener();
+      
+      // Salva cleanup globalmente per sicurezza
+      (window as any).triptasteNotificationCleanup = unsubscribe;
+      
+      refreshStatus();
+      console.log('🎧 Listener notifiche avviato');
+    } catch (error) {
+      console.error('❌ Errore avvio listener:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleStopListening = () => {
-    notificationService.stopNotificationListener();
-    setIsListening(false);
-    
-    if ((window as any).notificationCleanup) {
-      (window as any).notificationCleanup = undefined;
+    setIsLoading(true);
+    try {
+      notificationService.stopNotificationListener();
+      
+      // Pulisci cleanup globale
+      if ((window as any).triptasteNotificationCleanup) {
+        (window as any).triptasteNotificationCleanup = undefined;
+      }
+      
+      refreshStatus();
+      console.log('🛑 Listener notifiche fermato');
+    } catch (error) {
+      console.error('❌ Errore stop listener:', error);
+    } finally {
+      setIsLoading(false);
     }
-    
-    
   };
 
   const handleTestNotification = async () => {
-    if (permissionStatus.permission !== 'granted') {
-      
+    if (systemStatus.permission !== 'granted') {
+      console.warn('⚠️ Test saltato: permessi mancanti');
       return;
     }
 
-    const success = await notificationService.testNotification();
-    
-    if (success) {
+    setIsLoading(true);
+    try {
+      const success = await notificationService.testNotification();
       
-    } else {
-      
+      if (success) {
+        console.log('✅ Test notifica riuscito');
+      } else {
+        console.error('❌ Test notifica fallito');
+      }
+    } catch (error) {
+      console.error('❌ Errore test notifica:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleMarkAsSeen = () => {
-    notificationService.markAsSeen();
-    
+  const handleResetState = () => {
+    setIsLoading(true);
+    try {
+      notificationService.resetState();
+      refreshStatus();
+      console.log('🔄 Stato notifiche resettato');
+    } catch (error) {
+      console.error('❌ Errore reset:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // ========================================
+  // 🎨 UTILITY UI
+  // ========================================
+
   const getStatusColor = () => {
-    switch (permissionStatus.permission) {
+    switch (systemStatus.permission) {
       case 'granted': return 'text-green-600';
       case 'denied': return 'text-red-600';
       default: return 'text-yellow-600';
@@ -107,12 +173,20 @@ const Info = () => {
   };
 
   const getStatusText = () => {
-    switch (permissionStatus.permission) {
+    switch (systemStatus.permission) {
       case 'granted': return '✅ Concessi';
       case 'denied': return '❌ Negati';
       default: return '⏳ Non richiesti';
     }
   };
+
+  const getInitializationColor = () => {
+    return systemStatus.isInitialized ? 'text-green-600' : 'text-orange-600';
+  };
+
+  // ========================================
+  // 📊 DATI STATICI
+  // ========================================
 
   const features = [
     {
@@ -209,38 +283,61 @@ const Info = () => {
         ))}
       </div>
 
-      {/* SEZIONE NOTIFICHE BROWSER - NUOVA */}
-      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+      {/* ========================================
+          🔔 SEZIONE NOTIFICHE COMPLETAMENTE RINNOVATA
+          ======================================== */}
+      
+      <Card className="bg-gradient-to-r from-blue-50 via-purple-50 to-indigo-50 border-blue-200">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-[hsl(var(--dark-slate))] flex items-center">
-            <Bell className="w-6 h-6 mr-3 text-blue-600" />
-            Notifiche Browser Real-time
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-2xl font-bold text-[hsl(var(--dark-slate))] flex items-center">
+              <Bell className="w-6 h-6 mr-3 text-blue-600" />
+              Sistema Notifiche Avanzato
+            </CardTitle>
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={refreshStatus}
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              </Button>
+              <span className="text-xs text-gray-500">
+                Aggiornato: {lastUpdate.toLocaleTimeString()}
+              </span>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-[hsl(var(--dark-slate))]/70">
-            Ricevi notifiche browser istantanee quando vengono aggiunti nuovi ristoranti. 
-            Funziona anche quando hai altre schede aperte!
+            Sistema di notifiche real-time completamente rinnovato con persistenza multi-dispositivo, 
+            recupero automatico e gestione robusta degli errori.
           </p>
 
-          {/* Status Grid */}
-          <div className="grid md:grid-cols-3 gap-4">
-            <div className="p-4 bg-white rounded-lg border">
+          {/* ========================================
+              📊 STATO SISTEMA - DASHBOARD COMPLETA
+              ======================================== */}
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Supporto Browser */}
+            <div className="p-4 bg-white rounded-lg border shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium flex items-center">
                   <Globe className="w-4 h-4 mr-2 text-blue-500" />
-                  Supporto Browser
+                  Browser
                 </span>
-                <span className={permissionStatus.supported ? 'text-green-600' : 'text-red-600'}>
-                  {permissionStatus.supported ? '✅' : '❌'}
+                <span className={systemStatus.supported ? 'text-green-600' : 'text-red-600'}>
+                  {systemStatus.supported ? '✅' : '❌'}
                 </span>
               </div>
               <p className="text-xs text-gray-600">
-                {permissionStatus.supported ? 'Browser compatibile' : 'Non supportato'}
+                {systemStatus.supported ? 'Compatibile' : 'Non supportato'}
               </p>
             </div>
 
-            <div className="p-4 bg-white rounded-lg border">
+            {/* Permessi */}
+            <div className="p-4 bg-white rounded-lg border shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium flex items-center">
                   <Settings className="w-4 h-4 mr-2 text-orange-500" />
@@ -251,125 +348,181 @@ const Info = () => {
                 </span>
               </div>
               <p className="text-xs text-gray-600">
-                Stato autorizzazioni browser
+                Autorizzazioni browser
               </p>
             </div>
 
-            <div className="p-4 bg-white rounded-lg border">
+            {/* Stato Inizializzazione */}
+            <div className="p-4 bg-white rounded-lg border shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium flex items-center">
-                  {isListening ? 
+                  <Shield className="w-4 h-4 mr-2 text-purple-500" />
+                  Sistema
+                </span>
+                <span className={getInitializationColor()}>
+                  {systemStatus.isInitialized ? '🟢 Pronto' : '🟡 Caricamento'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-600">
+                Stato inizializzazione
+              </p>
+            </div>
+
+            {/* Listener */}
+            <div className="p-4 bg-white rounded-lg border shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium flex items-center">
+                  {systemStatus.isListening ? 
                     <Volume2 className="w-4 h-4 mr-2 text-green-500" /> :
                     <VolumeX className="w-4 h-4 mr-2 text-gray-500" />
                   }
                   Listener
                 </span>
-                <span className={isListening ? 'text-green-600' : 'text-gray-500'}>
-                  {isListening ? '🎧 Attivo' : '⏸️ Fermo'}
+                <span className={systemStatus.isListening ? 'text-green-600' : 'text-gray-500'}>
+                  {systemStatus.isListening ? '🎧 Attivo' : '⏸️ Inattivo'}
                 </span>
               </div>
               <p className="text-xs text-gray-600">
-                Ascolto aggiornamenti real-time
+                Ascolto real-time
               </p>
             </div>
           </div>
 
-          {/* Statistiche */}
-          {stats.totalShown > 0 && (
-            <div className="p-4 bg-white rounded-lg border">
-              <h4 className="font-semibold text-gray-800 mb-2 flex items-center">
-                📊 Statistiche Personali
+          {/* ========================================
+              📈 STATISTICHE AVANZATE
+              ======================================== */}
+          
+          {systemStatus.stats.totalShown > 0 && (
+            <div className="p-5 bg-white rounded-lg border shadow-sm">
+              <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
+                <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+                Statistiche Sistema
               </h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span className="text-gray-600">Notifiche ricevute:</span>
-                  <p className="font-semibold text-blue-600">{stats.totalShown}</p>
+                  <span className="text-gray-600">Notifiche mostrate:</span>
+                  <p className="font-semibold text-blue-600 text-lg">{systemStatus.stats.totalShown}</p>
                 </div>
-                {stats.lastShown && (
-                  <div>
-                    <span className="text-gray-600">Ultima notifica:</span>
-                    <p className="font-semibold text-blue-600">
-                      {new Date(stats.lastShown).toLocaleDateString('it-IT')}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <span className="text-gray-600">Ultimo ID processato:</span>
+                  <p className="font-mono text-xs text-gray-800">
+                    {systemStatus.stats.lastProcessedId || 'Nessuno'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-600">Ultimo aggiornamento:</span>
+                  <p className="font-semibold text-green-600">
+                    {new Date(systemStatus.stats.lastProcessedTimestamp).toLocaleString('it-IT')}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Device ID per debugging */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <span className="text-xs text-gray-500">Device ID: </span>
+                <code className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
+                  {systemStatus.deviceId}
+                </code>
               </div>
             </div>
           )}
 
-          {/* Azioni */}
+          {/* ========================================
+              🎮 AZIONI PRINCIPALI
+              ======================================== */}
+          
           <div className="space-y-3">
-            {!permissionStatus.supported ? (
+            {!systemStatus.supported ? (
               <Alert className="border-red-200 bg-red-50">
                 <AlertTriangle className="h-4 w-4 text-red-600" />
                 <AlertDescription className="text-red-800">
-                  Il tuo browser non supporta le notifiche. Prova Chrome, Firefox o Safari moderno.
+                  Il tuo browser non supporta le notifiche. Prova Chrome, Firefox o Safari aggiornato.
+                </AlertDescription>
+              </Alert>
+            ) : !systemStatus.isInitialized ? (
+              <Alert className="border-orange-200 bg-orange-50">
+                <Wifi className="h-4 w-4 text-orange-600" />
+                <AlertDescription className="text-orange-800">
+                  Sistema in inizializzazione... Attendi qualche secondo.
                 </AlertDescription>
               </Alert>
             ) : (
               <>
-                {permissionStatus.canRequest && (
+                {/* Richiesta permessi */}
+                {systemStatus.canRequest && (
                   <Button
                     onClick={handleRequestPermission}
+                    disabled={isLoading}
                     className="w-full bg-blue-500 hover:bg-blue-600 text-white"
                     size="lg"
                   >
                     <Bell className="w-5 h-5 mr-2" />
-                    Richiedi Permessi Notifiche
+                    {isLoading ? 'Richiedendo...' : 'Richiedi Permessi Notifiche'}
                   </Button>
                 )}
 
-                {permissionStatus.permission === 'granted' && !isListening && (
-                  <Button
-                    onClick={handleStartListening}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white"
-                    size="lg"
-                  >
-                    <Volume2 className="w-5 h-5 mr-2" />
-                    Attiva Notifiche Real-time
-                  </Button>
-                )}
+                {/* Avvio/Stop Listener */}
+                {systemStatus.permission === 'granted' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {!systemStatus.isListening ? (
+                      <Button
+                        onClick={handleStartListening}
+                        disabled={isLoading}
+                        className="bg-green-500 hover:bg-green-600 text-white"
+                        size="lg"
+                      >
+                        <Volume2 className="w-5 h-5 mr-2" />
+                        {isLoading ? 'Avviando...' : 'Attiva Notifiche'}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleStopListening}
+                        disabled={isLoading}
+                        variant="destructive"
+                        size="lg"
+                      >
+                        <BellOff className="w-5 h-5 mr-2" />
+                        {isLoading ? 'Fermando...' : 'Ferma Notifiche'}
+                      </Button>
+                    )}
 
-                {isListening && (
-                  <Button
-                    onClick={handleStopListening}
-                    variant="destructive"
-                    className="w-full"
-                    size="lg"
-                  >
-                    <BellOff className="w-5 h-5 mr-2" />
-                    Disattiva Notifiche
-                  </Button>
-                )}
-
-                {permissionStatus.permission === 'granted' && (
-                  <div className="grid grid-cols-2 gap-3">
+                    {/* Test */}
                     <Button
                       onClick={handleTestNotification}
+                      disabled={isLoading || systemStatus.permission !== 'granted'}
                       variant="outline"
                       className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                      size="lg"
                     >
-                      🧪 Test Notifica
-                    </Button>
-                    <Button
-                      onClick={handleMarkAsSeen}
-                      variant="outline"
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
-                    >
-                      ✅ Marca Viste
+                      🧪 {isLoading ? 'Testando...' : 'Test Notifica'}
                     </Button>
                   </div>
                 )}
 
-                {permissionStatus.permission === 'denied' && (
+                {/* Reset System */}
+                {systemStatus.stats.totalShown > 0 && (
+                  <Button
+                    onClick={handleResetState}
+                    disabled={isLoading}
+                    variant="outline"
+                    className="w-full border-red-300 text-red-700 hover:bg-red-50"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {isLoading ? 'Resettando...' : 'Reset Stato Sistema'}
+                  </Button>
+                )}
+
+                {/* Guida per permessi negati */}
+                {systemStatus.permission === 'denied' && (
                   <Alert className="border-yellow-200 bg-yellow-50">
                     <AlertTriangle className="h-4 w-4 text-yellow-600" />
                     <AlertDescription className="text-yellow-800">
                       <strong>Permessi negati.</strong> Per abilitare le notifiche:
-                      <ol className="list-decimal list-inside mt-2 text-sm">
+                      <ol className="list-decimal list-inside mt-2 text-sm space-y-1">
                         <li>Clicca sull'icona del lucchetto nella barra degli indirizzi</li>
                         <li>Seleziona "Consenti" per le notifiche</li>
                         <li>Ricarica la pagina</li>
+                        <li>Clicca "Richiedi Permessi Notifiche"</li>
                       </ol>
                     </AlertDescription>
                   </Alert>
@@ -378,15 +531,19 @@ const Info = () => {
             )}
           </div>
 
-          {/* Note dispositivi */}
-          <Alert className="border-orange-200 bg-orange-50">
-            <Smartphone className="h-4 w-4 text-orange-600" />
-            <AlertDescription className="text-orange-800 text-sm">
-              <strong>📱 Compatibilità:</strong>
-              <ul className="mt-1 list-disc list-inside space-y-1">
-                <li><strong>Desktop:</strong> Chrome, Firefox, Edge, Safari - Funziona perfettamente</li>
-                <li><strong>Android:</strong> Chrome, Firefox - Funziona bene</li>
-                <li><strong>iOS Safari:</strong> Solo con app aggiunta alla Home Screen + flag sperimentale</li>
+          {/* ========================================
+              📱 INFO COMPATIBILITÀ
+              ======================================== */}
+          
+          <Alert className="border-blue-200 bg-blue-50">
+            <Smartphone className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800 text-sm">
+              <strong>📱 Compatibilità Enhanced:</strong>
+              <ul className="mt-2 list-disc list-inside space-y-1">
+                <li><strong>Desktop:</strong> Chrome, Firefox, Edge, Safari - Supporto completo</li>
+                <li><strong>Android:</strong> Chrome, Firefox - Notifiche persistenti + vibrazione</li>
+                <li><strong>iOS:</strong> Safari con PWA - Supporto limitato (richiede aggiunta a Home Screen)</li>
+                <li><strong>Sincronizzazione:</strong> Stato condiviso tra tutti i dispositivi</li>
               </ul>
             </AlertDescription>
           </Alert>

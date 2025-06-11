@@ -1,15 +1,12 @@
 self.addEventListener('activate', (event) => {
-  
   self.clients.claim();
 });
 
 // Listener per messaggi dal main thread
 self.addEventListener('message', (event) => {
   
-  
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     const { title, options } = event.data;
-    
     
     
     // Mostra notifica tramite Service Worker
@@ -28,7 +25,6 @@ self.addEventListener('message', (event) => {
 
 // Click handler per notifiche
 self.addEventListener('notificationclick', (event) => {
-  
   
   event.notification.close();
   
