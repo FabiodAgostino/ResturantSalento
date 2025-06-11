@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,182 +12,13 @@ import {
   Download, 
   Search, 
   Database, 
-  Globe, 
   Zap,
   Chrome,
   AlertTriangle,
-  ExternalLink,
-  Bell,
-  BellOff,
-  Volume2,
-  VolumeX,
-  Settings,
-  RefreshCw,
-  Trash2,
-  BarChart3,
-  Shield,
-  Wifi
+  ExternalLink
 } from 'lucide-react';
 
-// Import del servizio notifiche AGGIORNATO
-import { EnhancedNotificationService } from "../../services/notification-service";
-
 const Info = () => {
-  // ========================================
-  // 🔄 STATO NOTIFICHE - COMPLETAMENTE RISTRUTTURATO
-  // ========================================
-  
-  const [notificationService] = useState(new EnhancedNotificationService());
-  const [systemStatus, setSystemStatus] = useState(notificationService.getSystemStatus());
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastUpdate, setLastUpdate] = useState(new Date());
-
-  // ========================================
-  // 🔄 EFFETTI E AGGIORNAMENTI
-  // ========================================
-  
-  useEffect(() => {
-    // Intervallo per aggiornare lo stato ogni 3 secondi
-    const statusInterval = setInterval(() => {
-      const newStatus = notificationService.getSystemStatus();
-      setSystemStatus(newStatus);
-      setLastUpdate(new Date());
-    }, 3000);
-
-    // Cleanup
-    return () => {
-      clearInterval(statusInterval);
-    };
-  }, [notificationService]);
-
-  // Aggiornamento manuale dello stato
-  const refreshStatus = () => {
-    const newStatus = notificationService.getSystemStatus();
-    setSystemStatus(newStatus);
-    setLastUpdate(new Date());
-  };
-
-  // ========================================
-  // 🎯 HANDLERS NOTIFICHE - AGGIORNATI
-  // ========================================
-
-  const handleRequestPermission = async () => {
-    setIsLoading(true);
-    try {
-      const permission = await notificationService.requestPermission();
-      refreshStatus();
-      
-      if (permission === 'granted') {
-        console.log('✅ Permessi notifiche concessi');
-      } else if (permission === 'denied') {
-        console.log('❌ Permessi notifiche negati');
-      }
-    } catch (error) {
-      console.error('❌ Errore richiesta permessi:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleStartListening = () => {
-    setIsLoading(true);
-    try {
-      const unsubscribe = notificationService.startNotificationListener();
-      
-      // Salva cleanup globalmente per sicurezza
-      (window as any).triptasteNotificationCleanup = unsubscribe;
-      
-      refreshStatus();
-      console.log('🎧 Listener notifiche avviato');
-    } catch (error) {
-      console.error('❌ Errore avvio listener:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleStopListening = () => {
-    setIsLoading(true);
-    try {
-      notificationService.stopNotificationListener();
-      
-      // Pulisci cleanup globale
-      if ((window as any).triptasteNotificationCleanup) {
-        (window as any).triptasteNotificationCleanup = undefined;
-      }
-      
-      refreshStatus();
-      console.log('🛑 Listener notifiche fermato');
-    } catch (error) {
-      console.error('❌ Errore stop listener:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleTestNotification = async () => {
-    if (systemStatus.permission !== 'granted') {
-      console.warn('⚠️ Test saltato: permessi mancanti');
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const success = await notificationService.testNotification();
-      
-      if (success) {
-        console.log('✅ Test notifica riuscito');
-      } else {
-        console.error('❌ Test notifica fallito');
-      }
-    } catch (error) {
-      console.error('❌ Errore test notifica:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleResetState = () => {
-    setIsLoading(true);
-    try {
-      notificationService.resetState();
-      refreshStatus();
-      console.log('🔄 Stato notifiche resettato');
-    } catch (error) {
-      console.error('❌ Errore reset:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ========================================
-  // 🎨 UTILITY UI
-  // ========================================
-
-  const getStatusColor = () => {
-    switch (systemStatus.permission) {
-      case 'granted': return 'text-green-600';
-      case 'denied': return 'text-red-600';
-      default: return 'text-yellow-600';
-    }
-  };
-
-  const getStatusText = () => {
-    switch (systemStatus.permission) {
-      case 'granted': return '✅ Concessi';
-      case 'denied': return '❌ Negati';
-      default: return '⏳ Non richiesti';
-    }
-  };
-
-  const getInitializationColor = () => {
-    return systemStatus.isInitialized ? 'text-green-600' : 'text-orange-600';
-  };
-
-  // ========================================
-  // 📊 DATI STATICI
-  // ========================================
-
   const features = [
     {
       icon: <Search className="w-6 h-6 text-[hsl(var(--terracotta))]" />,
@@ -260,6 +91,10 @@ const Info = () => {
         <h1 className="text-4xl font-bold text-[hsl(var(--dark-slate))] font-display">
           Come Funziona TripTaste
         </h1>
+        <p className="text-lg text-[hsl(var(--dark-slate))]/70 max-w-3xl mx-auto">
+          Scopri come TripTaste estrae e organizza i dati dei ristoranti per offrirti 
+          la migliore esperienza di ricerca culinaria nel Salento.
+        </p>
       </div>
 
       {/* Features Grid */}
@@ -282,273 +117,6 @@ const Info = () => {
           </Card>
         ))}
       </div>
-
-      {/* ========================================
-          🔔 SEZIONE NOTIFICHE COMPLETAMENTE RINNOVATA
-          ======================================== */}
-      
-      <Card className="bg-gradient-to-r from-blue-50 via-purple-50 to-indigo-50 border-blue-200">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-bold text-[hsl(var(--dark-slate))] flex items-center">
-              <Bell className="w-6 h-6 mr-3 text-blue-600" />
-              Sistema Notifiche Avanzato
-            </CardTitle>
-            <div className="flex items-center space-x-2">
-              <Button
-                onClick={refreshStatus}
-                variant="outline"
-                size="sm"
-                disabled={isLoading}
-              >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-              </Button>
-              <span className="text-xs text-gray-500">
-                Aggiornato: {lastUpdate.toLocaleTimeString()}
-              </span>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <p className="text-[hsl(var(--dark-slate))]/70">
-            Sistema di notifiche real-time completamente rinnovato con persistenza multi-dispositivo, 
-            recupero automatico e gestione robusta degli errori.
-          </p>
-
-          {/* ========================================
-              📊 STATO SISTEMA - DASHBOARD COMPLETA
-              ======================================== */}
-          
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Supporto Browser */}
-            <div className="p-4 bg-white rounded-lg border shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center">
-                  <Globe className="w-4 h-4 mr-2 text-blue-500" />
-                  Browser
-                </span>
-                <span className={systemStatus.supported ? 'text-green-600' : 'text-red-600'}>
-                  {systemStatus.supported ? '✅' : '❌'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600">
-                {systemStatus.supported ? 'Compatibile' : 'Non supportato'}
-              </p>
-            </div>
-
-            {/* Permessi */}
-            <div className="p-4 bg-white rounded-lg border shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center">
-                  <Settings className="w-4 h-4 mr-2 text-orange-500" />
-                  Permessi
-                </span>
-                <span className={getStatusColor()}>
-                  {getStatusText()}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600">
-                Autorizzazioni browser
-              </p>
-            </div>
-
-            {/* Stato Inizializzazione */}
-            <div className="p-4 bg-white rounded-lg border shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center">
-                  <Shield className="w-4 h-4 mr-2 text-purple-500" />
-                  Sistema
-                </span>
-                <span className={getInitializationColor()}>
-                  {systemStatus.isInitialized ? '🟢 Pronto' : '🟡 Caricamento'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600">
-                Stato inizializzazione
-              </p>
-            </div>
-
-            {/* Listener */}
-            <div className="p-4 bg-white rounded-lg border shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium flex items-center">
-                  {systemStatus.isListening ? 
-                    <Volume2 className="w-4 h-4 mr-2 text-green-500" /> :
-                    <VolumeX className="w-4 h-4 mr-2 text-gray-500" />
-                  }
-                  Listener
-                </span>
-                <span className={systemStatus.isListening ? 'text-green-600' : 'text-gray-500'}>
-                  {systemStatus.isListening ? '🎧 Attivo' : '⏸️ Inattivo'}
-                </span>
-              </div>
-              <p className="text-xs text-gray-600">
-                Ascolto real-time
-              </p>
-            </div>
-          </div>
-
-          {/* ========================================
-              📈 STATISTICHE AVANZATE
-              ======================================== */}
-          
-          {systemStatus.stats.totalShown > 0 && (
-            <div className="p-5 bg-white rounded-lg border shadow-sm">
-              <h4 className="font-semibold text-gray-800 mb-3 flex items-center">
-                <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
-                Statistiche Sistema
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <span className="text-gray-600">Notifiche mostrate:</span>
-                  <p className="font-semibold text-blue-600 text-lg">{systemStatus.stats.totalShown}</p>
-                </div>
-                <div>
-                  <span className="text-gray-600">Ultimo ID processato:</span>
-                  <p className="font-mono text-xs text-gray-800">
-                    {systemStatus.stats.lastProcessedId || 'Nessuno'}
-                  </p>
-                </div>
-                <div>
-                  <span className="text-gray-600">Ultimo aggiornamento:</span>
-                  <p className="font-semibold text-green-600">
-                    {new Date(systemStatus.stats.lastProcessedTimestamp).toLocaleString('it-IT')}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Device ID per debugging */}
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <span className="text-xs text-gray-500">Device ID: </span>
-                <code className="text-xs font-mono bg-gray-100 px-2 py-1 rounded">
-                  {systemStatus.deviceId}
-                </code>
-              </div>
-            </div>
-          )}
-
-          {/* ========================================
-              🎮 AZIONI PRINCIPALI
-              ======================================== */}
-          
-          <div className="space-y-3">
-            {!systemStatus.supported ? (
-              <Alert className="border-red-200 bg-red-50">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-800">
-                  Il tuo browser non supporta le notifiche. Prova Chrome, Firefox o Safari aggiornato.
-                </AlertDescription>
-              </Alert>
-            ) : !systemStatus.isInitialized ? (
-              <Alert className="border-orange-200 bg-orange-50">
-                <Wifi className="h-4 w-4 text-orange-600" />
-                <AlertDescription className="text-orange-800">
-                  Sistema in inizializzazione... Attendi qualche secondo.
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <>
-                {/* Richiesta permessi */}
-                {systemStatus.canRequest && (
-                  <Button
-                    onClick={handleRequestPermission}
-                    disabled={isLoading}
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white"
-                    size="lg"
-                  >
-                    <Bell className="w-5 h-5 mr-2" />
-                    {isLoading ? 'Richiedendo...' : 'Richiedi Permessi Notifiche'}
-                  </Button>
-                )}
-
-                {/* Avvio/Stop Listener */}
-                {systemStatus.permission === 'granted' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {!systemStatus.isListening ? (
-                      <Button
-                        onClick={handleStartListening}
-                        disabled={isLoading}
-                        className="bg-green-500 hover:bg-green-600 text-white"
-                        size="lg"
-                      >
-                        <Volume2 className="w-5 h-5 mr-2" />
-                        {isLoading ? 'Avviando...' : 'Attiva Notifiche'}
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={handleStopListening}
-                        disabled={isLoading}
-                        variant="destructive"
-                        size="lg"
-                      >
-                        <BellOff className="w-5 h-5 mr-2" />
-                        {isLoading ? 'Fermando...' : 'Ferma Notifiche'}
-                      </Button>
-                    )}
-
-                    {/* Test */}
-                    <Button
-                      onClick={handleTestNotification}
-                      disabled={isLoading || systemStatus.permission !== 'granted'}
-                      variant="outline"
-                      className="border-purple-300 text-purple-700 hover:bg-purple-50"
-                      size="lg"
-                    >
-                      🧪 {isLoading ? 'Testando...' : 'Test Notifica'}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Reset System */}
-                {systemStatus.stats.totalShown > 0 && (
-                  <Button
-                    onClick={handleResetState}
-                    disabled={isLoading}
-                    variant="outline"
-                    className="w-full border-red-300 text-red-700 hover:bg-red-50"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {isLoading ? 'Resettando...' : 'Reset Stato Sistema'}
-                  </Button>
-                )}
-
-                {/* Guida per permessi negati */}
-                {systemStatus.permission === 'denied' && (
-                  <Alert className="border-yellow-200 bg-yellow-50">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <AlertDescription className="text-yellow-800">
-                      <strong>Permessi negati.</strong> Per abilitare le notifiche:
-                      <ol className="list-decimal list-inside mt-2 text-sm space-y-1">
-                        <li>Clicca sull'icona del lucchetto nella barra degli indirizzi</li>
-                        <li>Seleziona "Consenti" per le notifiche</li>
-                        <li>Ricarica la pagina</li>
-                        <li>Clicca "Richiedi Permessi Notifiche"</li>
-                      </ol>
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* ========================================
-              📱 INFO COMPATIBILITÀ
-              ======================================== */}
-          
-          <Alert className="border-blue-200 bg-blue-50">
-            <Smartphone className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800 text-sm">
-              <strong>📱 Compatibilità Enhanced:</strong>
-              <ul className="mt-2 list-disc list-inside space-y-1">
-                <li><strong>Desktop:</strong> Chrome, Firefox, Edge, Safari - Supporto completo</li>
-                <li><strong>Android:</strong> Chrome, Firefox - Notifiche persistenti + vibrazione</li>
-                <li><strong>iOS:</strong> Safari con PWA - Supporto limitato (richiede aggiunta a Home Screen)</li>
-                <li><strong>Sincronizzazione:</strong> Stato condiviso tra tutti i dispositivi</li>
-              </ul>
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
 
       {/* Tech Stack */}
       <Card>
@@ -654,6 +222,44 @@ const Info = () => {
               <li>Clicca "Carica estensione non pacchettizzata"</li>
               <li>Seleziona la cartella estratta</li>
             </ol>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Additional Info Section */}
+      <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold text-[hsl(var(--dark-slate))] flex items-center">
+            <Heart className="w-6 h-6 mr-3 text-green-600" />
+            Perché TripTaste?
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-[hsl(var(--dark-slate))]/70">
+            TripTaste nasce dalla passione per la cucina salentina e dalla necessità di avere 
+            un sistema centralizzato per scoprire i migliori ristoranti della regione.
+          </p>
+          
+          <div className="grid md:grid-cols-2 gap-6 mt-6">
+            <div>
+              <h4 className="font-semibold text-[hsl(var(--dark-slate))] mb-2">🎯 Obiettivi</h4>
+              <ul className="space-y-1 text-sm text-[hsl(var(--dark-slate))]/70">
+                <li>• Centralizzare informazioni sui ristoranti salentini</li>
+                <li>• Offrire filtri avanzati per ogni esigenza</li>
+                <li>• Facilitare la pianificazione culinaria</li>
+                <li>• Valorizzare la cucina locale e tradizionale</li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="font-semibold text-[hsl(var(--dark-slate))] mb-2">🚀 Vantaggi</h4>
+              <ul className="space-y-1 text-sm text-[hsl(var(--dark-slate))]/70">
+                <li>• Dati sempre aggiornati da TripAdvisor</li>
+                <li>• Interfaccia moderna e responsive</li>
+                <li>• Sistema di preferiti personalizzato</li>
+                <li>• Mappe interattive per la geolocalizzazione</li>
+              </ul>
+            </div>
           </div>
         </CardContent>
       </Card>
